@@ -12,8 +12,10 @@ const menuEl = document.getElementById("menu") as HTMLDivElement;
 const coatsEl = document.getElementById("coats") as HTMLDivElement;
 const scaleSlider = document.getElementById("scaleSlider") as HTMLInputElement;
 const scaleValue = document.getElementById("scaleValue") as HTMLSpanElement;
-const sleepSelect = document.getElementById("sleepSelect") as HTMLSelectElement;
-const layoutSelect = document.getElementById("layoutSelect") as HTMLSelectElement;
+const sleepSelect = document.getElementById("sleepSelect") as HTMLButtonElement;
+const layoutSelect = document.getElementById("layoutSelect") as HTMLButtonElement;
+const sleepLabel = sleepSelect.querySelector(".dropdown-label") as HTMLSpanElement;
+const layoutLabel = layoutSelect.querySelector(".dropdown-label") as HTMLSpanElement;
 const leftMouseInput = document.getElementById("leftMouse") as HTMLInputElement;
 const clickThroughLockedInput = document.getElementById("clickThroughLocked") as HTMLInputElement;
 const privacyInput = document.getElementById("privacyMode") as HTMLInputElement;
@@ -26,12 +28,88 @@ const closeBtn = document.getElementById("closeBtn") as HTMLButtonElement;
 const headEl = menuEl.querySelector<HTMLElement>(".menu-head");
 
 let settings: AppSettings = { ...defaultSettings };
-let hideTimer = 0;
-let focusedOnce = false;
-let focusedAt = 0;
+
+interface Choice {
+  value: string;
+  label: string;
+}
+
+const layoutChoices: Choice[] = [
+  { value: "65", label: "65% 紧凑" },
+  { value: "104", label: "104 键全尺寸" },
+];
+const sleepChoices: Choice[] = [
+  { value: "1", label: "1 分钟" },
+  { value: "3", label: "3 分钟" },
+  { value: "5", label: "5 分钟" },
+  { value: "10", label: "10 分钟" },
+  { value: "30", label: "30 分钟" },
+  { value: "0", label: "不睡" },
+];
+
+const dropdownPopup = document.createElement("div");
+dropdownPopup.className = "dropdown-popup hidden";
+dropdownPopup.setAttribute("role", "listbox");
+document.body.appendChild(dropdownPopup);
+
+let openSelect: HTMLButtonElement | null = null;
+
+function closeDropdown() {
+  if (!openSelect) return;
+  openSelect.classList.remove("open");
+  openSelect.setAttribute("aria-expanded", "false");
+  openSelect = null;
+  dropdownPopup.classList.add("hidden");
+}
+
+function positionPopup(button: HTMLButtonElement) {
+  const rect = button.getBoundingClientRect();
+  const width = Math.max(rect.width, 150);
+  dropdownPopup.style.width = `${width}px`;
+  let left = rect.left;
+  if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8;
+  let top = rect.bottom + 6;
+  if (top + dropdownPopup.offsetHeight > window.innerHeight - 8) {
+    top = rect.top - dropdownPopup.offsetHeight - 6;
+  }
+  dropdownPopup.style.left = `${Math.max(8, left)}px`;
+  dropdownPopup.style.top = `${Math.max(8, top)}px`;
+}
+
+function openDropdown(
+  button: HTMLButtonElement,
+  choices: Choice[],
+  current: () => string,
+  pick: (value: string) => void,
+) {
+  if (openSelect === button) {
+    closeDropdown();
+    return;
+  }
+  closeDropdown();
+  openSelect = button;
+  button.classList.add("open");
+  button.setAttribute("aria-expanded", "true");
+  dropdownPopup.innerHTML = "";
+  for (const choice of choices) {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = "dropdown-option";
+    option.textContent = choice.label;
+    option.setAttribute("role", "option");
+    option.setAttribute("aria-selected", String(choice.value === current()));
+    option.addEventListener("click", () => {
+      pick(choice.value);
+      closeDropdown();
+    });
+    dropdownPopup.appendChild(option);
+  }
+  dropdownPopup.classList.remove("hidden");
+  positionPopup(button);
+}
 
 function hide() {
-  window.clearTimeout(hideTimer);
+  closeDropdown();
   if (isTauri) {
     void getCurrentWindow().hide();
   } else {
@@ -69,8 +147,10 @@ function buildCoatButtons() {
 function syncControls() {
   scaleSlider.value = String(Math.round(settings.scale * 100));
   scaleValue.textContent = `${Math.round(settings.scale * 100)}%`;
-  sleepSelect.value = String(settings.sleepMinutes);
-  layoutSelect.value = settings.keyboardLayout;
+  sleepLabel.textContent = sleepChoices.find((c) => c.value === String(settings.sleepMinutes))?.label
+    ?? `${settings.sleepMinutes} 分钟`;
+  layoutLabel.textContent = layoutChoices.find((c) => c.value === settings.keyboardLayout)?.label
+    ?? settings.keyboardLayout;
   leftMouseInput.checked = settings.leftMouse;
   clickThroughLockedInput.checked = settings.clickThroughLocked;
   privacyInput.checked = settings.privacyMode;
@@ -122,12 +202,22 @@ function bindControls() {
     void saveSettings({ scale: Number(scaleSlider.value) / 100 });
   });
 
-  sleepSelect.addEventListener("change", () => {
-    void saveSettings({ sleepMinutes: Number(sleepSelect.value) });
+  sleepSelect.addEventListener("click", () => {
+    openDropdown(
+      sleepSelect,
+      sleepChoices,
+      () => String(settings.sleepMinutes),
+      (value) => void saveSettings({ sleepMinutes: Number(value) }),
+    );
   });
 
-  layoutSelect.addEventListener("change", () => {
-    void saveSettings({ keyboardLayout: layoutSelect.value === "104" ? "104" : "65" });
+  layoutSelect.addEventListener("click", () => {
+    openDropdown(
+      layoutSelect,
+      layoutChoices,
+      () => settings.keyboardLayout,
+      (value) => void saveSettings({ keyboardLayout: value === "104" ? "104" : "65" }),
+    );
   });
 
   leftMouseInput.addEventListener("change", () => {
@@ -180,23 +270,29 @@ async function boot() {
       settings = ev.payload;
       syncControls();
     });
-    void getCurrentWindow().onFocusChanged(({ payload: focused }) => {
-      if (focused) {
-        focusedOnce = true;
-        focusedAt = performance.now();
-        window.clearTimeout(hideTimer);
-        void refresh();
-      } else if (focusedOnce && performance.now() - focusedAt > 600) {
-        window.clearTimeout(hideTimer);
-        hideTimer = window.setTimeout(hide, 150);
-      }
-    });
   }
 
   window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") hide();
+    if (e.key !== "Escape") return;
+    if (openSelect) {
+      closeDropdown();
+      return;
+    }
+    hide();
   });
-  window.addEventListener("resize", updateMenuScroll);
+  document.addEventListener("pointerdown", (e) => {
+    if (!openSelect) return;
+    const target = e.target as Node;
+    if (dropdownPopup.contains(target) || openSelect.contains(target)) return;
+    closeDropdown();
+  });
+  menuEl.querySelector<HTMLElement>(".menu-scroll")?.addEventListener("scroll", closeDropdown, {
+    passive: true,
+  });
+  window.addEventListener("resize", () => {
+    closeDropdown();
+    updateMenuScroll();
+  });
 }
 
 void boot();
