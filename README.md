@@ -16,12 +16,10 @@
   <table>
     <tr>
       <td align="center">
-        <img src="assets/demo-typing.gif" alt="小猫敲键盘时跟着按键抬爪" width="360" /><br />
-        <sub>敲键盘时跟着按键抬爪</sub>
+        <img src="assets/demo-typing.gif" alt="小猫敲键盘时跟着按键抬爪" width="360" />
       </td>
       <td align="center">
-        <img src="assets/demo-cursor.gif" alt="小猫追看光标、伸爪够鼠标" width="360" /><br />
-        <sub>移动鼠标时追看光标、伸爪够鼠标</sub>
+        <img src="assets/demo-cursor.gif" alt="小猫追看光标、伸爪够鼠标" width="360" />
       </td>
     </tr>
   </table>
