@@ -13,8 +13,18 @@
 </div>
 
 <div align="center">
-  <img src="assets/demo-typing.gif" alt="小猫敲键盘时跟着按键抬爪" width="360" />
-  <img src="assets/demo-cursor.gif" alt="小猫追看光标、伸爪够鼠标" width="360" />
+  <table>
+    <tr>
+      <td align="center">
+        <img src="assets/demo-typing.gif" alt="小猫敲键盘时跟着按键抬爪" width="360" /><br />
+        <sub>敲键盘时跟着按键抬爪</sub>
+      </td>
+      <td align="center">
+        <img src="assets/demo-cursor.gif" alt="小猫追看光标、伸爪够鼠标" width="360" /><br />
+        <sub>移动鼠标时追看光标、伸爪够鼠标</sub>
+      </td>
+    </tr>
+  </table>
 </div>
 
 ## 目录
@@ -119,11 +129,22 @@ tccutil reset All com.qoder.7paws
 ### 设置界面
 
 <div align="center">
-  <img src="assets/settings-custom-cat.png" alt="我的猫：色槽、花纹、斑纹与照片取色" width="200" />
-  &nbsp;&nbsp;
-  <img src="assets/settings-mcp.png" alt="毛色码与 AI 接入（MCP）配置" width="200" />
-  &nbsp;&nbsp;
-  <img src="assets/settings-toggles.png" alt="透明度、睡眠时间与各项开关" width="200" />
+  <table>
+    <tr>
+      <td align="center">
+        <img src="assets/settings-custom-cat.png" alt="我的猫：色槽、花纹、斑纹与照片取色" width="200" /><br />
+        <sub>我的猫：色槽、花纹与斑纹</sub>
+      </td>
+      <td align="center">
+        <img src="assets/settings-mcp.png" alt="毛色码与 AI 接入（MCP）配置" width="200" /><br />
+        <sub>毛色码与 AI 接入（MCP）</sub>
+      </td>
+      <td align="center">
+        <img src="assets/settings-toggles.png" alt="透明度、睡眠时间与各项开关" width="200" /><br />
+        <sub>透明度、睡眠与各项开关</sub>
+      </td>
+    </tr>
+  </table>
 </div>
 
 ## AI 助手接入（MCP）
