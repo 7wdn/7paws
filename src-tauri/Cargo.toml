@@ -3,6 +3,7 @@ name = "seven-paws"
 version = "0.1.0"
 description = "7paws desktop cat companion"
 authors = ["7paws"]
+license = "MIT"
 edition = "2021"
 
 [lib]

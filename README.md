@@ -186,3 +186,7 @@ pnpm dev
 3. GitHub Actions 构建 Windows NSIS 与 macOS Universal DMG，并创建 Release。
 
 也可以在 Actions 中手动运行 “Build bundles”，只构建安装包、不创建 Release。
+
+## License
+
+[MIT](LICENSE)
