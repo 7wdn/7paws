@@ -23,6 +23,7 @@ const labelsInput = document.getElementById("showKeyLabels") as HTMLInputElement
 const resetBtn = document.getElementById("resetPosBtn") as HTMLButtonElement;
 const quitBtn = document.getElementById("quitBtn") as HTMLButtonElement;
 const closeBtn = document.getElementById("closeBtn") as HTMLButtonElement;
+const headEl = menuEl.querySelector<HTMLElement>(".menu-head");
 
 let settings: AppSettings = { ...defaultSettings };
 let hideTimer = 0;
@@ -160,6 +161,13 @@ function bindControls() {
   });
 
   closeBtn.addEventListener("click", hide);
+
+  headEl?.addEventListener("pointerdown", (e) => {
+    if (!isTauri || e.button !== 0) return;
+    if ((e.target as HTMLElement).closest("button")) return;
+    e.preventDefault();
+    void getCurrentWindow().startDragging();
+  });
 }
 
 async function boot() {
