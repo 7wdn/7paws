@@ -5,7 +5,55 @@ use std::path::PathBuf;
 pub const MIN_SCALE: f64 = 0.1;
 pub const MAX_SCALE: f64 = 1.5;
 
-const COATS: [&str; 6] = ["tuxedo", "orange", "tabby", "calico", "white", "blue"];
+const COATS: [&str; 7] = ["tuxedo", "orange", "tabby", "calico", "white", "blue", "custom"];
+const CUSTOM_COAT_PATTERNS: [&str; 4] = ["solid", "bicolor", "tabby", "calico"];
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct CustomCoat {
+    pub fur: String,
+    pub patch: String,
+    pub accent: String,
+    pub eye: String,
+    pub pattern: String,
+}
+
+impl Default for CustomCoat {
+    fn default() -> Self {
+        Self {
+            fur: "#151515".to_string(),
+            patch: "#f8f6ef".to_string(),
+            accent: "#e9973f".to_string(),
+            eye: "#e2b93b".to_string(),
+            pattern: "bicolor".to_string(),
+        }
+    }
+}
+
+fn is_hex_color(value: &str) -> bool {
+    value.len() == 7 && value.starts_with('#') && value[1..].chars().all(|c| c.is_ascii_hexdigit())
+}
+
+impl CustomCoat {
+    fn normalize(&mut self) {
+        let fallback = CustomCoat::default();
+        if !is_hex_color(&self.fur) {
+            self.fur = fallback.fur;
+        }
+        if !is_hex_color(&self.patch) {
+            self.patch = fallback.patch;
+        }
+        if !is_hex_color(&self.accent) {
+            self.accent = fallback.accent;
+        }
+        if !is_hex_color(&self.eye) {
+            self.eye = fallback.eye;
+        }
+        if !CUSTOM_COAT_PATTERNS.contains(&self.pattern.as_str()) {
+            self.pattern = fallback.pattern;
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -21,6 +69,7 @@ pub struct AppSettings {
     pub privacy_mode: bool,
     pub left_mouse: bool,
     pub coat: String,
+    pub custom_coat: CustomCoat,
     pub sleep_minutes: u32,
     pub show_key_labels: bool,
     pub keyboard_layout: String,
@@ -41,6 +90,7 @@ impl Default for AppSettings {
             privacy_mode: false,
             left_mouse: false,
             coat: "tuxedo".to_string(),
+            custom_coat: CustomCoat::default(),
             sleep_minutes: 5,
             show_key_labels: true,
             keyboard_layout: "65".to_string(),
@@ -56,6 +106,7 @@ impl AppSettings {
         if !COATS.contains(&self.coat.as_str()) {
             self.coat = "tuxedo".to_string();
         }
+        self.custom_coat.normalize();
         if self.keyboard_layout != "104" {
             self.keyboard_layout = "65".to_string();
         }

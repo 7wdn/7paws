@@ -1,3 +1,13 @@
+export type CustomCoatPattern = "solid" | "bicolor" | "tabby" | "calico";
+
+export interface CustomCoat {
+  fur: string;
+  patch: string;
+  accent: string;
+  eye: string;
+  pattern: CustomCoatPattern;
+}
+
 export interface AppSettings {
   x: number | null;
   y: number | null;
@@ -10,6 +20,7 @@ export interface AppSettings {
   privacyMode: boolean;
   leftMouse: boolean;
   coat: string;
+  customCoat: CustomCoat;
   sleepMinutes: number;
   showKeyLabels: boolean;
   keyboardLayout: "65" | "104";

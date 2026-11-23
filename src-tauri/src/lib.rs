@@ -266,6 +266,7 @@ fn update_settings(
     s.privacy_mode = patch.privacy_mode;
     s.left_mouse = patch.left_mouse;
     s.coat = patch.coat;
+    s.custom_coat = patch.custom_coat.clone();
     s.sleep_minutes = patch.sleep_minutes;
     s.show_key_labels = patch.show_key_labels;
     s.keyboard_layout = patch.keyboard_layout;

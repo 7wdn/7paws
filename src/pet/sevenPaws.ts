@@ -1,5 +1,6 @@
 import type { AppSettings, CatInput, PawSide } from "../types";
 import { catAudio } from "../audio";
+import { buildCoatPalette, type CoatPalette } from "./customCoat";
 
 type Region = [number, number, number, number];
 
@@ -7,6 +8,7 @@ interface RefCatApi {
   setInput(keys: Set<string>, buttons: Set<string>): void;
   tap(side: "Left" | "Right"): void;
   setOptions(options: Record<string, unknown>): void;
+  setCustomCoat(coat: CoatPalette): void;
   mouseMoved(): void;
   clear(): void;
   state(): string;
@@ -199,14 +201,16 @@ export class SevenPawsPet {
   }
 
   private applyOptions(settings: AppSettings) {
-    this.api.setOptions({
+    const options: Record<string, unknown> = {
       showKeyboard: true,
       showMouse: true,
       followKeys: true,
       leftMouse: settings.leftMouse,
-      coat: settings.coat,
       sleepMinutes: settings.sleepMinutes,
       showKeyLabels: settings.showKeyLabels,
-    });
+    };
+    if (settings.coat !== "custom") options.coat = settings.coat;
+    this.api.setOptions(options);
+    if (settings.coat === "custom") this.api.setCustomCoat(buildCoatPalette(settings.customCoat));
   }
 }
