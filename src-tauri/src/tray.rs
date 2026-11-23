@@ -20,14 +20,10 @@ pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     let sep = PredefinedMenuItem::separator(app)?;
 
     let menu = Menu::with_items(app, &[&toggle, &open_menu, &sep, &quit])?;
-    #[cfg(target_os = "macos")]
-    let icon = Image::from_bytes(include_bytes!("../icons/tray-icon-macos.png"))?;
-    #[cfg(not(target_os = "macos"))]
     let icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?;
 
     TrayIconBuilder::with_id("cat-tray")
         .icon(icon)
-        .icon_as_template(true)
         .tooltip("7paws")
         .menu(&menu)
         .show_menu_on_left_click(false)
