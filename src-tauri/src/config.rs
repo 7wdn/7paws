@@ -5,57 +5,9 @@ use std::path::PathBuf;
 pub const MIN_SCALE: f64 = 0.1;
 pub const MAX_SCALE: f64 = 1.5;
 
-const COATS: [&str; 7] = ["tuxedo", "orange", "tabby", "calico", "white", "blue", "custom"];
-const CUSTOM_COAT_PATTERNS: [&str; 4] = ["solid", "bicolor", "tabby", "calico"];
+pub(crate) const COATS: [&str; 6] = ["tuxedo", "orange", "tabby", "calico", "white", "blue"];
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-pub struct CustomCoat {
-    pub fur: String,
-    pub patch: String,
-    pub accent: String,
-    pub eye: String,
-    pub pattern: String,
-}
-
-impl Default for CustomCoat {
-    fn default() -> Self {
-        Self {
-            fur: "#151515".to_string(),
-            patch: "#f8f6ef".to_string(),
-            accent: "#e9973f".to_string(),
-            eye: "#e2b93b".to_string(),
-            pattern: "bicolor".to_string(),
-        }
-    }
-}
-
-fn is_hex_color(value: &str) -> bool {
-    value.len() == 7 && value.starts_with('#') && value[1..].chars().all(|c| c.is_ascii_hexdigit())
-}
-
-impl CustomCoat {
-    fn normalize(&mut self) {
-        let fallback = CustomCoat::default();
-        if !is_hex_color(&self.fur) {
-            self.fur = fallback.fur;
-        }
-        if !is_hex_color(&self.patch) {
-            self.patch = fallback.patch;
-        }
-        if !is_hex_color(&self.accent) {
-            self.accent = fallback.accent;
-        }
-        if !is_hex_color(&self.eye) {
-            self.eye = fallback.eye;
-        }
-        if !CUSTOM_COAT_PATTERNS.contains(&self.pattern.as_str()) {
-            self.pattern = fallback.pattern;
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct AppSettings {
     pub x: Option<i32>,
@@ -70,7 +22,6 @@ pub struct AppSettings {
     pub privacy_mode: bool,
     pub left_mouse: bool,
     pub coat: String,
-    pub custom_coat: CustomCoat,
     pub sleep_minutes: u32,
     pub show_key_labels: bool,
     pub keyboard_layout: String,
@@ -92,7 +43,6 @@ impl Default for AppSettings {
             privacy_mode: false,
             left_mouse: false,
             coat: "tuxedo".to_string(),
-            custom_coat: CustomCoat::default(),
             sleep_minutes: 5,
             show_key_labels: true,
             keyboard_layout: "65".to_string(),
@@ -101,15 +51,27 @@ impl Default for AppSettings {
     }
 }
 
+fn is_slug(value: &str) -> bool {
+    (1..=32).contains(&value.len())
+        && !value.starts_with('-')
+        && value
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_')
+}
+
+pub(crate) fn is_hex_color(value: &str) -> bool {
+    value.len() == 7 && value.starts_with('#') && value[1..].chars().all(|c| c.is_ascii_hexdigit())
+}
+
 impl AppSettings {
     pub fn normalize(&mut self) {
         self.scale = self.scale.clamp(MIN_SCALE, MAX_SCALE);
         self.opacity = self.opacity.clamp(0.1, 1.0);
         self.sleep_minutes = self.sleep_minutes.min(120);
-        if !COATS.contains(&self.coat.as_str()) {
+        // Custom coat ids are validated against cats.json by the app; here only the shape is checked.
+        if !COATS.contains(&self.coat.as_str()) && !is_slug(&self.coat) {
             self.coat = "tuxedo".to_string();
         }
-        self.custom_coat.normalize();
         if self.keyboard_layout != "104" {
             self.keyboard_layout = "65".to_string();
         }
@@ -152,13 +114,16 @@ fn legacy_config_path() -> PathBuf {
     data_dir("cat-pet").join("settings.json")
 }
 
+pub fn try_load_settings() -> Option<AppSettings> {
+    let content = fs::read_to_string(config_path()).ok()?;
+    let mut parsed = serde_json::from_str::<AppSettings>(&content).ok()?;
+    parsed.normalize();
+    Some(parsed)
+}
+
 pub fn load_settings() -> AppSettings {
-    let path = config_path();
-    if let Ok(content) = fs::read_to_string(&path) {
-        if let Ok(mut parsed) = serde_json::from_str::<AppSettings>(&content) {
-            parsed.normalize();
-            return parsed;
-        }
+    if let Some(parsed) = try_load_settings() {
+        return parsed;
     }
     // Migrate settings written before the 7paws rename.
     if let Ok(content) = fs::read_to_string(legacy_config_path()) {
