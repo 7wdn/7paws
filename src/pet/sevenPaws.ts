@@ -32,6 +32,7 @@ declare global {
 
 export class SevenPawsPet {
   private readonly api: RefCatApi;
+  private readonly host: HTMLElement;
   private readonly onRegions: (regions: Region[]) => void;
   private settings: AppSettings;
   private layout: "65" | "104";
@@ -58,6 +59,7 @@ export class SevenPawsPet {
     });
     if (!api) throw new Error("Reference cat renderer failed to start");
     this.api = api;
+    this.host = host;
     this.settings = settings;
     this.layout = settings.keyboardLayout;
     this.onRegions = onRegions;
@@ -201,6 +203,7 @@ export class SevenPawsPet {
   }
 
   private applyOptions(settings: AppSettings) {
+    this.host.style.opacity = String(settings.opacity);
     const options: Record<string, unknown> = {
       showKeyboard: true,
       showMouse: true,

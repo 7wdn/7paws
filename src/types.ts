@@ -12,6 +12,7 @@ export interface AppSettings {
   x: number | null;
   y: number | null;
   scale: number;
+  opacity: number;
   alwaysOnTop: boolean;
   clickThroughLocked: boolean;
   purrPet: boolean;

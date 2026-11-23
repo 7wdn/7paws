@@ -4,6 +4,7 @@ export const defaultSettings: AppSettings = {
   x: null,
   y: null,
   scale: 0.6,
+  opacity: 1,
   alwaysOnTop: true,
   clickThroughLocked: false,
   purrPet: true,

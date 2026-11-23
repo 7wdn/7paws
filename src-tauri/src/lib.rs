@@ -258,6 +258,7 @@ fn update_settings(
 
     patch.normalize();
     s.scale = patch.scale;
+    s.opacity = patch.opacity;
     s.always_on_top = patch.always_on_top;
     s.click_through_locked = patch.click_through_locked;
     s.purr_pet = patch.purr_pet;
