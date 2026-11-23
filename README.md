@@ -12,6 +12,11 @@
   <a href="https://github.com/7wdn/7paws/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/7wdn/7paws/ci.yml?branch=main&amp;style=flat-square" alt="CI" /></a>
 </div>
 
+<div align="center">
+  <img src="assets/demo-typing.gif" alt="小猫敲键盘时跟着按键抬爪" width="360" />
+  <img src="assets/demo-cursor.gif" alt="小猫追看光标、伸爪够鼠标" width="360" />
+</div>
+
 ## 目录
 
 - [功能特性](#功能特性)
@@ -110,6 +115,16 @@ tccutil reset All com.qoder.7paws
 - 锁定鼠标穿透后整窗不接收鼠标操作，按住 `Alt` 可临时拖动或右键打开菜单。
 - 大小滑杆拖动时只预览百分比，松手后应用。
 - 设置窗口右上角可以检查更新、打开 GitHub 仓库，底部显示当前版本。
+
+### 设置界面
+
+<div align="center">
+  <img src="assets/settings-custom-cat.png" alt="我的猫：色槽、花纹、斑纹与照片取色" width="200" />
+  &nbsp;&nbsp;
+  <img src="assets/settings-mcp.png" alt="毛色码与 AI 接入（MCP）配置" width="200" />
+  &nbsp;&nbsp;
+  <img src="assets/settings-toggles.png" alt="透明度、睡眠时间与各项开关" width="200" />
+</div>
 
 ## AI 助手接入（MCP）
 
