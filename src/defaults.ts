@@ -15,4 +15,5 @@ export const defaultSettings: AppSettings = {
   sleepMinutes: 5,
   showKeyLabels: true,
   keyboardLayout: "65",
+  showTrayIcon: true,
 };

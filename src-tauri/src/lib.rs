@@ -269,6 +269,7 @@ fn update_settings(
     s.sleep_minutes = patch.sleep_minutes;
     s.show_key_labels = patch.show_key_labels;
     s.keyboard_layout = patch.keyboard_layout;
+    s.show_tray_icon = patch.show_tray_icon;
 
     if prev_autostart != s.autostart {
         let _ = set_autostart(s.autostart);
@@ -280,6 +281,15 @@ fn update_settings(
             if let Some((x, y)) = resize_anchored_bottom_center(&win, &s.keyboard_layout, s.scale) {
                 s.x = Some(x);
                 s.y = Some(y);
+            }
+        }
+    }
+
+    // Never leave the app with both the pet and the tray hidden.
+    if !s.show_tray_icon {
+        if let Some(win) = app.get_webview_window("main") {
+            if !win.is_visible().unwrap_or(true) {
+                let _ = win.show();
             }
         }
     }

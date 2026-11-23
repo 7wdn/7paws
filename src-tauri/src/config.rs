@@ -24,6 +24,7 @@ pub struct AppSettings {
     pub sleep_minutes: u32,
     pub show_key_labels: bool,
     pub keyboard_layout: String,
+    pub show_tray_icon: bool,
 }
 
 impl Default for AppSettings {
@@ -43,6 +44,7 @@ impl Default for AppSettings {
             sleep_minutes: 5,
             show_key_labels: true,
             keyboard_layout: "65".to_string(),
+            show_tray_icon: true,
         }
     }
 }
