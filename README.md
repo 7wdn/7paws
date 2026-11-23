@@ -128,9 +128,11 @@ MCP 客户端配置（Windows，路径按实际安装位置调整）：
 macOS 使用 `/Applications/7paws.app/Contents/MacOS/7paws`（参数 `--mcp`）。
 
 - 工具：`list_cats`、`get_cat_schema`（配色语义、四种花纹、斑纹坐标与模板）、`upsert_cat`（创建/覆盖一只猫并切换）、`switch_cat`、`delete_cat`。
+- 设置窗口的「AI 接入（MCP）」一栏可以关闭/开启 MCP，并直接复制含当前程序路径的客户端配置。
 - 自定义猫保存在配置文件同目录的 `cats.json`；应用运行时轮询文件变化并热更新，「我的猫」支持 head/body 斑纹（最多 24 处椭圆斑）。
 - 照片只发给 AI 客户端，7paws 本身没有任何网络请求。
 - 设置窗口里可以给当前「我的猫」生成毛色码，复制分享或粘贴导入。
+- 升级安装时，安装器会通过 Windows Restart Manager 检测占用（包括 AI 客户端拉起的 `--mcp` 进程）并提示关闭后继续；完成后重启 AI 客户端即可恢复 MCP。若 AI 客户端以管理员身份运行，需要先手动退出它再升级。
 
 ## 默认设置
 
@@ -146,6 +148,7 @@ macOS 使用 `/Applications/7paws.app/Contents/MacOS/7paws`（参数 `--mcp`）�
 | 自动睡眠呼噜声 | 关闭 |
 | 显示按键字母 | 开启 |
 | 显示托盘图标 | 开启 |
+| 允许 AI 接入（MCP） | 开启 |
 | 开机自启 | 关闭 |
 | 鼠标在左手边 | 关闭 |
 | 锁定鼠标穿透 | 关闭 |

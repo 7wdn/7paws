@@ -660,3 +660,32 @@ body.settings-body .menu-head {
   justify-content: center;
   color: var(--muted);
 }
+
+.menu-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.menu-gh {
+  background: transparent;
+}
+
+.menu-gh:hover {
+  background: rgba(25, 25, 23, 0.08);
+}
+
+.menu-gh svg {
+  display: block;
+}
+
+.mcp-config {
+  margin-top: 8px;
+  margin-bottom: 4px;
+  font-family: Consolas, "SF Mono", monospace;
+  font-size: 9.5px;
+}
+
+.mcp-hint {
+  margin-top: 2px;
+}

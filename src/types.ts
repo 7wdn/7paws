@@ -39,6 +39,7 @@ export interface AppSettings {
   showKeyLabels: boolean;
   keyboardLayout: "65" | "104";
   showTrayIcon: boolean;
+  mcpEnabled: boolean;
 }
 
 export type CatInput =

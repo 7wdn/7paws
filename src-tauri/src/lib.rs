@@ -290,6 +290,7 @@ fn update_settings(
     s.show_key_labels = patch.show_key_labels;
     s.keyboard_layout = patch.keyboard_layout;
     s.show_tray_icon = patch.show_tray_icon;
+    s.mcp_enabled = patch.mcp_enabled;
 
     if prev_autostart != s.autostart {
         let _ = set_autostart(s.autostart);
@@ -560,6 +561,35 @@ fn delete_custom_cat(app: AppHandle, state: State<'_, AppState>, id: String) -> 
 }
 
 #[tauri::command]
+fn get_mcp_config() -> String {
+    let exe = std::env::current_exe()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| "7paws.exe".to_string());
+    serde_json::json!({
+        "mcpServers": {
+            "7paws": { "command": exe, "args": ["--mcp"] }
+        }
+    })
+    .to_string()
+}
+
+#[tauri::command]
+fn open_project_page() {
+    #[cfg(windows)]
+    {
+        let _ = std::process::Command::new("cmd")
+            .args(["/C", "start", "", "https://github.com/7wdn/7paws"])
+            .spawn();
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("open")
+            .arg("https://github.com/7wdn/7paws")
+            .spawn();
+    }
+}
+
+#[tauri::command]
 fn set_hit_regions(state: State<'_, AppState>, regions: Vec<[f64; 4]>) {
     let mut sanitized: Vec<[f64; 4]> = Vec::new();
     for rect in regions.into_iter().take(8) {
@@ -805,6 +835,8 @@ pub fn run() {
             get_custom_cats,
             save_custom_cat,
             delete_custom_cat,
+            get_mcp_config,
+            open_project_page,
             set_dragging,
             set_hit_regions,
             reset_position,

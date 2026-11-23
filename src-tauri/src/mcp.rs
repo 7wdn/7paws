@@ -268,6 +268,16 @@ fn handle_jsonrpc(request: &Value) -> Option<Value> {
         "ping" => Ok(json!({})),
         "tools/list" => Ok(json!({ "tools": tool_definitions() })),
         "tools/call" => {
+            if !config::try_load_settings()
+                .map(|s| s.mcp_enabled)
+                .unwrap_or(true)
+            {
+                return Some(json!({
+                    "jsonrpc": "2.0",
+                    "id": id,
+                    "result": err_text("7paws MCP is disabled in the app settings (允许 AI 接入（MCP）). Ask the user to enable it and retry.")
+                }));
+            }
             let tool = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
             let args = params.get("arguments").cloned().unwrap_or_else(|| json!({}));
             Ok(execute_tool(tool, &args))

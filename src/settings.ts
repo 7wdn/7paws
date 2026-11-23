@@ -26,6 +26,9 @@ const privacyInput = document.getElementById("privacyMode") as HTMLInputElement;
 const purrPetInput = document.getElementById("purrPet") as HTMLInputElement;
 const purrSleepInput = document.getElementById("purrSleep") as HTMLInputElement;
 const labelsInput = document.getElementById("showKeyLabels") as HTMLInputElement;
+const mcpEnabledInput = document.getElementById("mcpEnabled") as HTMLInputElement;
+const mcpConfigInput = document.getElementById("mcpConfig") as HTMLInputElement;
+const githubBtn = document.getElementById("githubBtn") as HTMLButtonElement;
 const resetBtn = document.getElementById("resetPosBtn") as HTMLButtonElement;
 const quitBtn = document.getElementById("quitBtn") as HTMLButtonElement;
 const closeBtn = document.getElementById("closeBtn") as HTMLButtonElement;
@@ -397,6 +400,7 @@ function syncControls() {
   purrPetInput.checked = settings.purrPet;
   purrSleepInput.checked = settings.purrSleep;
   labelsInput.checked = settings.showKeyLabels;
+  mcpEnabledInput.checked = settings.mcpEnabled;
   syncCoatGrid();
   menuButtonSelected(settings.coat);
   const cat = activeCat();
@@ -561,6 +565,15 @@ async function refresh() {
     } catch {
       // Keep the last known list.
     }
+    try {
+      mcpConfigInput.value = await invoke<string>("get_mcp_config");
+    } catch {
+      mcpConfigInput.value = "";
+    }
+  } else {
+    mcpConfigInput.value = JSON.stringify({
+      mcpServers: { "7paws": { command: "7paws.exe", args: ["--mcp"] } },
+    });
   }
   syncControls();
 }
@@ -625,6 +638,18 @@ function bindControls() {
   });
   labelsInput.addEventListener("change", () => {
     void saveSettings({ showKeyLabels: labelsInput.checked });
+  });
+
+  mcpEnabledInput.addEventListener("change", () => {
+    void saveSettings({ mcpEnabled: mcpEnabledInput.checked });
+  });
+
+  githubBtn.addEventListener("click", () => {
+    if (isTauri) {
+      void invoke("open_project_page");
+    } else {
+      window.open("https://github.com/7wdn/7paws", "_blank");
+    }
   });
 
   patternSelect.addEventListener("click", () => {
