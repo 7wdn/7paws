@@ -1,11 +1,12 @@
 mod config;
 mod input_hook;
+#[cfg(windows)]
 mod keymap;
+#[cfg(target_os = "macos")]
+mod keymap_macos;
 mod tray;
 
-use config::{
-    load_settings, save_settings, set_windows_autostart, AppSettings, MAX_SCALE, MIN_SCALE,
-};
+use config::{load_settings, save_settings, set_autostart, AppSettings, MAX_SCALE, MIN_SCALE};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -122,8 +123,20 @@ fn cursor_pos() -> Option<(i32, i32)> {
     }
 }
 
-#[cfg(not(windows))]
-fn cursor_pos() -> Option<(i32, i32)> {
+#[cfg(windows)]
+fn cursor_pos_for(_win: &WebviewWindow) -> Option<(f64, f64)> {
+    cursor_pos().map(|(x, y)| (x as f64, y as f64))
+}
+
+// NSEvent reports points; Tauri converts to the physical pixels used by the
+// window position and size, so hit-test ratios match the Windows path.
+#[cfg(target_os = "macos")]
+fn cursor_pos_for(win: &WebviewWindow) -> Option<(f64, f64)> {
+    win.cursor_position().ok().map(|p| (p.x, p.y))
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
+fn cursor_pos_for(_win: &WebviewWindow) -> Option<(f64, f64)> {
     None
 }
 
@@ -145,7 +158,7 @@ fn start_hit_test_loop(
             if !win.is_visible().unwrap_or(false) {
                 continue;
             }
-            let Some((cx, cy)) = cursor_pos() else {
+            let Some((cx, cy)) = cursor_pos_for(&win) else {
                 continue;
             };
             let Ok(pos) = win.outer_position() else {
@@ -157,8 +170,8 @@ fn start_hit_test_loop(
 
             let w = size.width.max(1) as f64;
             let h = size.height.max(1) as f64;
-            let rx = (cx - pos.x) as f64 / w;
-            let ry = (cy - pos.y) as f64 / h;
+            let rx = (cx - pos.x as f64) / w;
+            let ry = (cy - pos.y as f64) / h;
             let inside = rx >= 0.0 && rx <= 1.0 && ry >= 0.0 && ry <= 1.0;
             let forced = menu_open.load(Ordering::Relaxed) || dragging.load(Ordering::Relaxed);
 
@@ -244,7 +257,7 @@ fn update_settings(
     s.keyboard_layout = patch.keyboard_layout;
 
     if prev_autostart != s.autostart {
-        let _ = set_windows_autostart(s.autostart);
+        let _ = set_autostart(s.autostart);
     }
 
     if let Some(win) = app.get_webview_window("main") {
@@ -340,12 +353,20 @@ pub fn run() {
             hit_regions,
         })
         .setup(move |app| {
+            #[cfg(target_os = "macos")]
+            {
+                // Tray-only pet: no Dock icon, no app menu bar.
+                let _ = app
+                    .handle()
+                    .set_activation_policy(tauri::ActivationPolicy::Accessory);
+            }
+
             let handle = app.handle().clone();
             let s = settings_setup.lock().unwrap().clone();
 
             if s.autostart {
-                // Re-register under the new value name after the 7paws rename.
-                let _ = set_windows_autostart(true);
+                // Re-register under the new name after the 7paws rename.
+                let _ = set_autostart(true);
             }
 
             if let Some(win) = app.get_webview_window("main") {

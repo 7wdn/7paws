@@ -2,13 +2,14 @@ import "./style.css";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { SevenPawsPet } from "./pet/SevenPaws.ts";
+import { SevenPawsPet } from "./pet/sevenPaws.ts";
 import { COATS } from "./pet/coats";
 import type { AppSettings, CatInput } from "./types";
 
 const isTauri = "__TAURI_INTERNALS__" in window || "__TAURI__" in window;
 
 const stage = document.getElementById("stage") as HTMLDivElement;
+const permNotice = document.getElementById("permNotice") as HTMLDivElement;
 const menuEl = document.getElementById("menu") as HTMLDivElement;
 const coatsEl = document.getElementById("coats") as HTMLDivElement;
 const scaleSlider = document.getElementById("scaleSlider") as HTMLInputElement;
@@ -285,6 +286,9 @@ async function boot() {
     });
     await listen("cat-open-menu", () => {
       showMenu(window.innerWidth * 0.55, window.innerHeight * 0.08);
+    });
+    await listen<{ trusted: boolean }>("cat-input-status", (ev) => {
+      permNotice.classList.toggle("hidden", ev.payload.trusted);
     });
   }
 

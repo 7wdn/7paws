@@ -24,6 +24,7 @@ pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
 
     TrayIconBuilder::with_id("cat-tray")
         .icon(icon)
+        .icon_as_template(true)
         .tooltip("7paws")
         .menu(&menu)
         .show_menu_on_left_click(false)

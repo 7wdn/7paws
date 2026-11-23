@@ -66,7 +66,14 @@ fn data_dir(name: &str) -> PathBuf {
             .unwrap_or_else(|_| PathBuf::from("."));
         base.join(name)
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        let home = std::env::var("HOME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("."));
+        home.join("Library").join("Application Support").join(name)
+    }
+    #[cfg(all(not(windows), not(target_os = "macos")))]
     {
         let home = std::env::var("HOME")
             .map(PathBuf::from)
@@ -117,7 +124,7 @@ pub fn save_settings(settings: &AppSettings) {
 }
 
 #[cfg(windows)]
-pub fn set_windows_autostart(enabled: bool) -> Result<(), String> {
+pub fn set_autostart(enabled: bool) -> Result<(), String> {
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::System::Registry::{
@@ -181,7 +188,86 @@ pub fn set_windows_autostart(enabled: bool) -> Result<(), String> {
     }
 }
 
-#[cfg(not(windows))]
-pub fn set_windows_autostart(_enabled: bool) -> Result<(), String> {
+#[cfg(target_os = "macos")]
+const LAUNCH_AGENT_LABEL: &str = "com.qoder.7paws";
+
+#[cfg(target_os = "macos")]
+fn launch_agent_path() -> Result<PathBuf, String> {
+    let home = std::env::var("HOME").map_err(|e| e.to_string())?;
+    Ok(PathBuf::from(home)
+        .join("Library")
+        .join("LaunchAgents")
+        .join(format!("{LAUNCH_AGENT_LABEL}.plist")))
+}
+
+#[cfg(target_os = "macos")]
+fn xml_escape(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&apos;")
+}
+
+#[cfg(target_os = "macos")]
+pub fn set_autostart(enabled: bool) -> Result<(), String> {
+    let path = launch_agent_path()?;
+    if !enabled {
+        return match fs::remove_file(&path) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(e.to_string()),
+        };
+    }
+
+    if let Some(dir) = path.parent() {
+        fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let bundle = exe
+        .ancestors()
+        .find(|p| p.extension().and_then(|e| e.to_str()) == Some("app"));
+
+    let mut arguments = String::new();
+    if let Some(bundle) = bundle {
+        // Launch through LaunchServices so the bundled app starts as a whole.
+        arguments.push_str("    <string>/usr/bin/open</string>\n");
+        arguments.push_str("    <string>-a</string>\n");
+        arguments.push_str(&format!(
+            "    <string>{}</string>\n",
+            xml_escape(bundle.to_string_lossy().as_ref())
+        ));
+    } else {
+        arguments.push_str(&format!(
+            "    <string>{}</string>\n",
+            xml_escape(exe.to_string_lossy().as_ref())
+        ));
+    }
+
+    let plist = format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>{LAUNCH_AGENT_LABEL}</string>
+  <key>ProgramArguments</key>
+  <array>
+{arguments}  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <false/>
+</dict>
+</plist>
+"#
+    );
+    fs::write(&path, plist).map_err(|e| e.to_string())
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
+pub fn set_autostart(_enabled: bool) -> Result<(), String> {
     Ok(())
 }

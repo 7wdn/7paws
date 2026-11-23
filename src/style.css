@@ -39,6 +39,28 @@ body {
   outline: none;
 }
 
+.perm {
+  position: absolute;
+  z-index: 16;
+  top: 10px;
+  left: 50%;
+  max-width: calc(100% - 24px);
+  padding: 7px 11px;
+  border-radius: 10px;
+  background: rgba(25, 25, 23, 0.82);
+  color: #fffdf6;
+  font-size: 11px;
+  line-height: 1.45;
+  text-align: center;
+  pointer-events: none;
+  transform: translateX(-50%);
+  backdrop-filter: blur(6px);
+}
+
+.perm.hidden {
+  display: none;
+}
+
 .menu {
   position: absolute;
   z-index: 20;
