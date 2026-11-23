@@ -17,4 +17,5 @@ export const defaultSettings: AppSettings = {
   showKeyLabels: true,
   keyboardLayout: "65",
   showTrayIcon: true,
+  mcpEnabled: true,
 };

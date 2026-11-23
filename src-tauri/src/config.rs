@@ -26,6 +26,7 @@ pub struct AppSettings {
     pub show_key_labels: bool,
     pub keyboard_layout: String,
     pub show_tray_icon: bool,
+    pub mcp_enabled: bool,
 }
 
 impl Default for AppSettings {
@@ -47,6 +48,7 @@ impl Default for AppSettings {
             show_key_labels: true,
             keyboard_layout: "65".to_string(),
             show_tray_icon: true,
+            mcp_enabled: true,
         }
     }
 }
