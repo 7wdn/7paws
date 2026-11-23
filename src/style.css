@@ -84,6 +84,42 @@ body {
   display: none;
 }
 
+body.settings-body .menu {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  bottom: 12px;
+  right: auto;
+  width: 244px;
+  max-width: none;
+  max-height: none;
+}
+
+body.settings-body .menu-head {
+  align-items: center;
+}
+
+.menu-close {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(25, 25, 23, 0.08);
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.menu-close:hover {
+  background: rgba(25, 25, 23, 0.16);
+  color: var(--ink);
+}
+
 .menu-scroll {
   flex: 1 1 auto;
   min-height: 0;

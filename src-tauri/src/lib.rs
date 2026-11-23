@@ -18,10 +18,11 @@ pub const BASE_WIDTH: f64 = 660.0;
 pub const BASE_HEIGHT: f64 = 480.0;
 pub const BASE_WIDTH_104: f64 = 740.0;
 pub const BASE_HEIGHT_104: f64 = 520.0;
+pub const SETTINGS_WIDTH: f64 = 268.0;
+pub const SETTINGS_HEIGHT: f64 = 540.0;
 
 pub struct AppState {
     settings: Arc<Mutex<AppSettings>>,
-    menu_open: Arc<AtomicBool>,
     dragging: Arc<AtomicBool>,
     hit_regions: Arc<Mutex<Vec<[f64; 4]>>>,
 }
@@ -149,7 +150,6 @@ fn cursor_pos_for(_win: &WebviewWindow) -> Option<(f64, f64)> {
 fn start_hit_test_loop(
     app: AppHandle,
     settings: Arc<Mutex<AppSettings>>,
-    menu_open: Arc<AtomicBool>,
     dragging: Arc<AtomicBool>,
     regions: Arc<Mutex<Vec<[f64; 4]>>>,
 ) {
@@ -180,7 +180,7 @@ fn start_hit_test_loop(
             let rx = (cx - pos.x as f64) / w;
             let ry = (cy - pos.y as f64) / h;
             let inside = rx >= 0.0 && rx <= 1.0 && ry >= 0.0 && ry <= 1.0;
-            let forced = menu_open.load(Ordering::Relaxed) || dragging.load(Ordering::Relaxed);
+            let forced = dragging.load(Ordering::Relaxed);
 
             let locked = settings
                 .lock()
@@ -293,13 +293,78 @@ fn update_settings(
 }
 
 #[tauri::command]
-fn set_menu_open(state: State<'_, AppState>, open: bool) {
-    state.menu_open.store(open, Ordering::Relaxed);
+fn set_dragging(state: State<'_, AppState>, dragging: bool) {
+    state.dragging.store(dragging, Ordering::Relaxed);
+}
+
+fn place_settings_window(app: &AppHandle, win: &WebviewWindow) {
+    let Some(pet) = app.get_webview_window("main") else {
+        return;
+    };
+    let (Ok(pet_pos), Ok(pet_size)) = (pet.outer_position(), pet.outer_size()) else {
+        return;
+    };
+    let sf = pet.scale_factor().unwrap_or(1.0);
+    let sw = (SETTINGS_WIDTH * sf).round() as i32;
+    let sh = (SETTINGS_HEIGHT * sf).round() as i32;
+    let gap = (10.0 * sf).round() as i32;
+    let monitor = pet
+        .current_monitor()
+        .ok()
+        .flatten()
+        .or_else(|| app.primary_monitor().ok().flatten());
+    let (ax, ay, aw, ah) = if let Some(m) = monitor {
+        let wa = m.work_area();
+        (
+            wa.position.x,
+            wa.position.y,
+            wa.size.width as i32,
+            wa.size.height as i32,
+        )
+    } else {
+        (0, 0, 1920, 1080)
+    };
+    let mut x = pet_pos.x + pet_size.width as i32 + gap;
+    if x + sw > ax + aw {
+        x = pet_pos.x - gap - sw;
+    }
+    x = x.clamp(ax, (ax + aw - sw).max(ax));
+    let y = (pet_pos.y + pet_size.height as i32 - sh).clamp(ay, (ay + ah - sh).max(ay));
+    let _ = win.set_position(PhysicalPosition::new(x, y));
+}
+
+pub(crate) fn show_settings_window(app: &AppHandle) {
+    if let Some(win) = app.get_webview_window("settings") {
+        place_settings_window(app, &win);
+        let _ = win.show();
+        let _ = win.set_focus();
+        return;
+    }
+    let built = tauri::WebviewWindowBuilder::new(
+        app,
+        "settings",
+        tauri::WebviewUrl::App("settings.html".into()),
+    )
+    .title("7paws 设置")
+    .inner_size(SETTINGS_WIDTH, SETTINGS_HEIGHT)
+    .resizable(false)
+    .decorations(false)
+    .transparent(true)
+    .shadow(false)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .visible(false)
+    .build();
+    if let Ok(win) = built {
+        place_settings_window(app, &win);
+        let _ = win.show();
+        let _ = win.set_focus();
+    }
 }
 
 #[tauri::command]
-fn set_dragging(state: State<'_, AppState>, dragging: bool) {
-    state.dragging.store(dragging, Ordering::Relaxed);
+fn open_settings(app: AppHandle) {
+    show_settings_window(&app);
 }
 
 #[tauri::command]
@@ -350,19 +415,16 @@ fn quit_app(app: AppHandle) {
 pub fn run() {
     let initial = load_settings();
     let settings = Arc::new(Mutex::new(initial.clone()));
-    let menu_open = Arc::new(AtomicBool::new(false));
     let dragging = Arc::new(AtomicBool::new(false));
     let hit_regions = Arc::new(Mutex::new(default_regions()));
 
     let settings_setup = settings.clone();
-    let menu_setup = menu_open.clone();
     let drag_setup = dragging.clone();
     let regions_setup = hit_regions.clone();
 
     tauri::Builder::default()
         .manage(AppState {
             settings: settings.clone(),
-            menu_open,
             dragging,
             hit_regions,
         })
@@ -404,7 +466,6 @@ pub fn run() {
             start_hit_test_loop(
                 handle.clone(),
                 settings_setup.clone(),
-                menu_setup.clone(),
                 drag_setup.clone(),
                 regions_setup.clone(),
             );
@@ -415,7 +476,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_settings,
             update_settings,
-            set_menu_open,
+            open_settings,
             set_dragging,
             set_hit_regions,
             reset_position,

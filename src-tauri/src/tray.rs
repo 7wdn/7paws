@@ -9,6 +9,9 @@ fn toggle_window(app: &AppHandle) {
     if let Some(win) = app.get_webview_window("main") {
         if win.is_visible().unwrap_or(true) {
             let _ = win.hide();
+            if let Some(settings) = app.get_webview_window("settings") {
+                let _ = settings.hide();
+            }
         } else {
             let _ = win.show();
         }
@@ -72,13 +75,7 @@ pub fn setup_tray(app: &AppHandle, settings: Arc<Mutex<AppSettings>>) -> tauri::
                 let _ = event_lock.set_checked(locked);
                 let _ = app.emit("cat-settings", out);
             }
-            "open_menu" => {
-                if let Some(win) = app.get_webview_window("main") {
-                    let _ = win.show();
-                    let _ = win.set_focus();
-                }
-                let _ = app.emit("cat-open-menu", ());
-            }
+            "open_menu" => crate::show_settings_window(app),
             "quit" => app.exit(0),
             _ => {}
         })
