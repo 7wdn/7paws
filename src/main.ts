@@ -294,12 +294,12 @@ async function boot() {
 
   window.addEventListener("resize", () => {
     if (menuVisible) positionMenu();
-    if (isTauri) void invoke("set_hit_regions", { regions: scene.hitRegions() });
+    scene.refreshHitRegions();
   });
 
   if (params.get("demo") === "1") runDemo();
   if (!isTauri) (window as unknown as { __pet: SevenPawsPet }).__pet = scene;
-  if (isTauri) void invoke("set_hit_regions", { regions: scene.hitRegions() });
+  scene.refreshHitRegions();
 }
 
 void boot();

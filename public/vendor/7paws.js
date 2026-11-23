@@ -440,6 +440,22 @@ function keyUp(code) {
 }
 function addChip(k) { const el = document.createElement('div'); el.className = 'chip'; el.textContent = k.label; stageEl.appendChild(el); S.chips.push({ el, k, code: k.code, born: performance.now(), gone: 0 }); }
 
+/* ---------- click-through hit regions ---------- */
+// Hand-added on top of the generated file: the app toggles window click-through from these
+// screen-space boxes. They are projected from the live pose, so they follow leans and strikes.
+const hitBox = new THREE.Box3(), hitV = new THREE.Vector3();
+const hitRect = (box, pad) => {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) {
+    hitV.set(x, y, z).project(camera);
+    const px = (hitV.x + 1) / 2, py = (1 - hitV.y) / 2;
+    if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py;
+  }
+  x0 = clamp(x0 - pad, 0, 1); y0 = clamp(y0 - pad, 0, 1); x1 = clamp(x1 + pad, 0, 1); y1 = clamp(y1 + pad, 0, 1);
+  return [x0, y0, x1 - x0, y1 - y0];
+};
+const hitExpand = objs => { hitBox.makeEmpty(); for (const o of objs) hitBox.expandByObject(o, true); return hitRect(hitBox, 0.012); };
+
 let demo = false;
 const stopDemo = () => { if (!demo) return; demo = false; $('btnDemo').textContent = '播放演示'; hintEl.textContent = '正在跟随你的键盘'; [...S.down.keys()].forEach(keyUp); };
 let lastPointer = null;
@@ -606,6 +622,17 @@ return {
   coats: COATS.map(c => c.id),
   headSideAt(clientX, clientY) {
     return onHeadAt({ target: stageEl, clientX, clientY });
+  },
+  hitRegions() {
+    if (!stageEl.clientWidth || !stageEl.clientHeight) return [];
+    scene.updateMatrixWorld(true);
+    return [
+      hitExpand([head]),
+      hitExpand([torso, ...hindFeet, paws.L.rim, paws.L.core, paws.L.root, paws.L.foot, paws.R.rim, paws.R.core, paws.R.root, paws.R.foot]),
+      hitExpand([tail]),
+      hitExpand([activeLayout.group]),
+      hitExpand([mouseGroup]),
+    ];
   },
   setPointerNdc(x, y) {
     S.pointer = { x, y };

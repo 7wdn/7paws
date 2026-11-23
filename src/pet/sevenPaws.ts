@@ -11,6 +11,7 @@ interface RefCatApi {
   clear(): void;
   state(): string;
   headSideAt(clientX: number, clientY: number): number;
+  hitRegions(): Region[];
   setPointerNdc(x: number, y: number): void;
   setMouseActive(): void;
   nudgeMouse(dx: number, dy: number): void;
@@ -41,6 +42,7 @@ export class SevenPawsPet {
   private rawX = 0.5;
   private rawY = 0.5;
   private hasRaw = false;
+  private regionsKey = "";
 
   constructor(
     host: HTMLElement,
@@ -71,9 +73,10 @@ export class SevenPawsPet {
           ? 0.4
           : 0;
       catAudio.setPurrIntensity(target);
+      this.syncRegions();
     }, 180);
 
-    onRegions(this.hitRegions());
+    this.refreshHitRegions();
   }
 
   handleInput(ev: CatInput) {
@@ -143,7 +146,10 @@ export class SevenPawsPet {
       this.layout = next.keyboardLayout;
       this.api.setLayout(next.keyboardLayout);
       this.clearInput();
-      this.onRegions(this.hitRegions());
+      this.refreshHitRegions();
+    }
+    if (next.leftMouse !== prev.leftMouse) {
+      this.refreshHitRegions();
     }
     if (next.leftMouse !== prev.leftMouse || next.privacyMode !== prev.privacyMode) {
       this.clearInput();
@@ -162,17 +168,21 @@ export class SevenPawsPet {
     this.api.clear();
   }
 
+  private syncRegions(force = false) {
+    const regions = this.api.hitRegions();
+    if (!regions.length) return;
+    const key = regions.map((r) => r.map((v) => Math.round(v * 200)).join(",")).join("|");
+    if (!force && key === this.regionsKey) return;
+    this.regionsKey = key;
+    this.onRegions(regions);
+  }
+
   hitRegions(): Region[] {
-    if (this.layout === "104") {
-      return [
-        [0.24, 0.02, 0.52, 0.72],
-        [0.03, 0.55, 0.94, 0.44],
-      ];
-    }
-    return [
-      [0.2, 0.02, 0.6, 0.74],
-      [0.06, 0.6, 0.88, 0.38],
-    ];
+    return this.api.hitRegions();
+  }
+
+  refreshHitRegions() {
+    requestAnimationFrame(() => this.syncRegions(true));
   }
 
   press(code: string) {
