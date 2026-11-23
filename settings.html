@@ -18,6 +18,28 @@
           <div id="coats" class="coat-grid"></div>
         </div>
 
+        <div id="customCoat" class="menu-section custom-coat" hidden>
+          <div class="menu-label">
+            <span>我的猫</span>
+            <span class="menu-hint">照片只在本机取色</span>
+          </div>
+          <div class="color-row">
+            <button class="color-slot" type="button" data-slot="fur"><span class="color-dot"></span><span>主色</span></button>
+            <button class="color-slot" type="button" data-slot="patch"><span class="color-dot"></span><span>花色</span></button>
+            <button class="color-slot" type="button" data-slot="accent"><span class="color-dot"></span><span>第三色</span></button>
+            <button class="color-slot" type="button" data-slot="eye"><span class="color-dot"></span><span>眼睛</span></button>
+          </div>
+          <div class="custom-row">
+            <span class="menu-label">花纹</span>
+            <button id="patternSelect" class="dropdown" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="花纹">
+              <span class="dropdown-label">双色</span>
+              <span class="dropdown-caret">▾</span>
+            </button>
+          </div>
+          <button id="photoBtn" class="btn photo-btn" type="button">从照片取色</button>
+          <input id="photoInput" type="file" accept="image/*" hidden />
+        </div>
+
         <div class="menu-section">
           <div class="menu-label">
             <span>大小</span>

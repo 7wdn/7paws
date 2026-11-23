@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { COATS } from "./pet/coats";
 import { defaultSettings } from "./defaults";
-import type { AppSettings } from "./types";
+import type { AppSettings, CustomCoat, CustomCoatPattern } from "./types";
 
 const isTauri = "__TAURI_INTERNALS__" in window || "__TAURI__" in window;
 
@@ -28,6 +28,14 @@ const resetBtn = document.getElementById("resetPosBtn") as HTMLButtonElement;
 const quitBtn = document.getElementById("quitBtn") as HTMLButtonElement;
 const closeBtn = document.getElementById("closeBtn") as HTMLButtonElement;
 const headEl = menuEl.querySelector<HTMLElement>(".menu-head");
+const customCoatEl = document.getElementById("customCoat") as HTMLDivElement;
+const patternSelect = document.getElementById("patternSelect") as HTMLButtonElement;
+const patternLabel = patternSelect.querySelector(".dropdown-label") as HTMLSpanElement;
+const photoBtn = document.getElementById("photoBtn") as HTMLButtonElement;
+const photoInput = document.getElementById("photoInput") as HTMLInputElement;
+const colorSlotButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".color-slot"));
+
+type ColorSlot = keyof Pick<CustomCoat, "fur" | "patch" | "accent" | "eye">;
 
 let settings: AppSettings = { ...defaultSettings };
 
@@ -47,6 +55,12 @@ const sleepChoices: Choice[] = [
   { value: "10", label: "10 分钟" },
   { value: "30", label: "30 分钟" },
   { value: "0", label: "不睡" },
+];
+const patternChoices: Choice[] = [
+  { value: "solid", label: "纯色" },
+  { value: "bicolor", label: "双色" },
+  { value: "tabby", label: "虎斑" },
+  { value: "calico", label: "三花" },
 ];
 
 const dropdownPopup = document.createElement("div");
@@ -88,6 +102,7 @@ function openDropdown(
     closeDropdown();
     return;
   }
+  closeColorPopup();
   closeDropdown();
   openSelect = button;
   button.classList.add("open");
@@ -108,6 +123,167 @@ function openDropdown(
   }
   dropdownPopup.classList.remove("hidden");
   positionPopup(button);
+}
+
+const COLOR_SWATCHES = [
+  "#151515", "#2b2620", "#3f3324", "#4d3d2b", "#7a4312", "#8b8f86",
+  "#a08a6c", "#b5b1a2", "#c26a1f", "#e9973f", "#e2b93b", "#c79a2e",
+  "#8090a0", "#667686", "#5c8a3a", "#5aa9c9", "#fbe8c9", "#f8f6ef",
+];
+
+const colorPopup = document.createElement("div");
+colorPopup.className = "color-popup hidden";
+colorPopup.innerHTML = `<div class="color-grid"></div><input class="color-hex" type="text" maxlength="7" spellcheck="false" aria-label="颜色值" />`;
+document.body.appendChild(colorPopup);
+const colorGrid = colorPopup.querySelector<HTMLDivElement>(".color-grid")!;
+const colorHex = colorPopup.querySelector<HTMLInputElement>(".color-hex")!;
+
+let colorSlot: ColorSlot | null = null;
+
+for (const swatch of COLOR_SWATCHES) {
+  const option = document.createElement("button");
+  option.type = "button";
+  option.style.background = swatch;
+  option.title = swatch;
+  option.addEventListener("click", () => pickColor(swatch));
+  colorGrid.appendChild(option);
+}
+
+function closeColorPopup() {
+  if (!colorSlot) return;
+  colorSlot = null;
+  colorPopup.classList.add("hidden");
+}
+
+function pickColor(hex: string) {
+  if (!colorSlot) return;
+  const next = { ...settings.customCoat, [colorSlot]: hex };
+  closeColorPopup();
+  void saveSettings({ coat: "custom", customCoat: next });
+}
+
+function openColorPopup(button: HTMLButtonElement, slot: ColorSlot) {
+  closeDropdown();
+  if (colorSlot === slot) {
+    closeColorPopup();
+    return;
+  }
+  closeColorPopup();
+  colorSlot = slot;
+  colorHex.value = settings.customCoat[slot];
+  colorPopup.classList.remove("hidden");
+  const rect = button.getBoundingClientRect();
+  const width = colorPopup.offsetWidth;
+  const height = colorPopup.offsetHeight;
+  let left = rect.left;
+  if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8;
+  let top = rect.bottom + 6;
+  if (top + height > window.innerHeight - 8) top = rect.top - height - 6;
+  colorPopup.style.left = `${Math.max(8, left)}px`;
+  colorPopup.style.top = `${Math.max(8, top)}px`;
+}
+
+colorHex.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") colorHex.blur();
+});
+colorHex.addEventListener("change", () => {
+  const raw = colorHex.value.trim();
+  const hex = raw.startsWith("#") ? raw : `#${raw}`;
+  if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+    pickColor(hex.toLowerCase());
+  } else if (colorSlot) {
+    colorHex.value = settings.customCoat[colorSlot];
+  }
+});
+
+function refreshCustomSwatch() {
+  const swatch = coatsEl.querySelector<HTMLElement>('[data-coat="custom"] .coat-swatch');
+  if (!swatch) return;
+  const coat = settings.customCoat;
+  swatch.style.background = coat.pattern === "solid"
+    ? coat.fur
+    : `linear-gradient(135deg, ${coat.fur} 50%, ${coat.pattern === "calico" ? coat.accent : coat.patch} 50%)`;
+}
+
+function hexOf(rgb: number[]): string {
+  return `#${rgb
+    .map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
+// Local-only palette extraction: downsample, drop the edges, cluster the pixels
+// and pick the largest colour plus the two most distinct ones. No photo leaves the device.
+async function extractColorsFromPhoto(
+  file: File,
+): Promise<{ fur: string; patch: string; accent: string; pattern: CustomCoatPattern }> {
+  // createImageBitmap is missing from older WKWebView, so decode through an <img>.
+  const url = URL.createObjectURL(file);
+  let image: HTMLImageElement;
+  try {
+    image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("decode failed"));
+      img.src = url;
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+  const width = 96;
+  const height = Math.max(16, Math.round((image.height / image.width) * width));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) throw new Error("canvas unavailable");
+  ctx.drawImage(image, 0, 0, width, height);
+  const { data } = ctx.getImageData(0, 0, width, height);
+  const samples: number[][] = [];
+  for (let y = Math.floor(height * 0.08); y < height * 0.92; y += 1) {
+    for (let x = Math.floor(width * 0.08); x < width * 0.92; x += 1) {
+      const i = (y * width + x) * 4;
+      if (data[i + 3] < 200) continue;
+      samples.push([data[i], data[i + 1], data[i + 2]]);
+    }
+  }
+  if (samples.length < 32) throw new Error("no pixels");
+  const centers = [0.12, 0.4, 0.68, 0.9].map((f) => [...samples[Math.floor(f * (samples.length - 1))]]);
+  const counts = new Array(centers.length).fill(0);
+  for (let iter = 0; iter < 12; iter += 1) {
+    const sums = centers.map(() => [0, 0, 0]);
+    counts.fill(0);
+    for (const sample of samples) {
+      let best = 0;
+      let bestDist = Infinity;
+      for (let k = 0; k < centers.length; k += 1) {
+        const c = centers[k];
+        const dist = (sample[0] - c[0]) ** 2 + (sample[1] - c[1]) ** 2 + (sample[2] - c[2]) ** 2;
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = k;
+        }
+      }
+      counts[best] += 1;
+      sums[best][0] += sample[0];
+      sums[best][1] += sample[1];
+      sums[best][2] += sample[2];
+    }
+    for (let k = 0; k < centers.length; k += 1) {
+      if (counts[k]) centers[k] = sums[k].map((v) => v / counts[k]);
+    }
+  }
+  const ranked = centers.map((c, k) => ({ c, n: counts[k] })).sort((a, b) => b.n - a.n);
+  const distance = (a: number[], b: number[]) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  const fur = ranked[0].c;
+  const patch = ranked.slice(1).find((r) => distance(r.c, fur) > 60)?.c;
+  const accent = ranked.slice(1).find((r) => distance(r.c, fur) > 60 && (!patch || distance(r.c, patch) > 60))?.c;
+  const pattern: CustomCoatPattern = accent ? "calico" : patch ? "bicolor" : "solid";
+  return {
+    fur: hexOf(fur),
+    patch: hexOf(patch ?? fur),
+    accent: hexOf(accent ?? patch ?? fur),
+    pattern,
+  };
 }
 
 function hide() {
@@ -162,6 +338,13 @@ function syncControls() {
   purrSleepInput.checked = settings.purrSleep;
   labelsInput.checked = settings.showKeyLabels;
   menuButtonSelected(settings.coat);
+  for (const btn of colorSlotButtons) {
+    const dot = btn.querySelector<HTMLElement>(".color-dot");
+    if (dot) dot.style.background = settings.customCoat[btn.dataset.slot as ColorSlot];
+  }
+  patternLabel.textContent = patternChoices.find((c) => c.value === settings.customCoat.pattern)?.label ?? "双色";
+  customCoatEl.hidden = settings.coat !== "custom";
+  refreshCustomSwatch();
   requestAnimationFrame(updateMenuScroll);
 }
 
@@ -249,6 +432,43 @@ function bindControls() {
     void saveSettings({ showKeyLabels: labelsInput.checked });
   });
 
+  patternSelect.addEventListener("click", () => {
+    openDropdown(
+      patternSelect,
+      patternChoices,
+      () => settings.customCoat.pattern,
+      (value) => void saveSettings({
+        coat: "custom",
+        customCoat: { ...settings.customCoat, pattern: value as CustomCoatPattern },
+      }),
+    );
+  });
+
+  for (const btn of colorSlotButtons) {
+    btn.addEventListener("click", () => openColorPopup(btn, btn.dataset.slot as ColorSlot));
+  }
+
+  photoBtn.addEventListener("click", () => photoInput.click());
+  photoInput.addEventListener("change", async () => {
+    const file = photoInput.files?.[0];
+    photoInput.value = "";
+    if (!file) return;
+    photoBtn.disabled = true;
+    photoBtn.textContent = "正在取色…";
+    try {
+      const colors = await extractColorsFromPhoto(file);
+      await saveSettings({ coat: "custom", customCoat: { ...settings.customCoat, ...colors } });
+      photoBtn.textContent = "已取色，可继续微调";
+    } catch {
+      photoBtn.textContent = "这张照片读不出来，换一张试试";
+    } finally {
+      photoBtn.disabled = false;
+      window.setTimeout(() => {
+        photoBtn.textContent = "从照片取色";
+      }, 2400);
+    }
+  });
+
   resetBtn.addEventListener("click", async () => {
     if (isTauri) {
       await invoke("reset_position");
@@ -285,6 +505,10 @@ async function boot() {
 
   window.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
+    if (colorSlot) {
+      closeColorPopup();
+      return;
+    }
     if (openSelect) {
       closeDropdown();
       return;
@@ -292,16 +516,23 @@ async function boot() {
     hide();
   });
   document.addEventListener("pointerdown", (e) => {
-    if (!openSelect) return;
     const target = e.target as Node;
-    if (dropdownPopup.contains(target) || openSelect.contains(target)) return;
-    closeDropdown();
+    if (openSelect && !(dropdownPopup.contains(target) || openSelect.contains(target))) {
+      closeDropdown();
+    }
+    if (colorSlot && !colorPopup.contains(target) && !(target instanceof Element && target.closest(".color-slot"))) {
+      closeColorPopup();
+    }
   });
-  menuEl.querySelector<HTMLElement>(".menu-scroll")?.addEventListener("scroll", closeDropdown, {
+  menuEl.querySelector<HTMLElement>(".menu-scroll")?.addEventListener("scroll", () => {
+    closeDropdown();
+    closeColorPopup();
+  }, {
     passive: true,
   });
   window.addEventListener("resize", () => {
     closeDropdown();
+    closeColorPopup();
     updateMenuScroll();
   });
 }

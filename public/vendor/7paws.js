@@ -367,7 +367,9 @@ const COATS = [
   { id: 'blue', name: '蓝灰猫', fur: '#8090a0', patch: '#8090a0', line: '#3c4650', eye: '#e0a63a', whisker: '#f4f4ee', stripe: '#667686', inner: '#c59aa0' }
 ];
 const WALLS = [['浅色桌面', 'transparent', '#e9ebb6'], ['深色桌面', '#1f2226', '#454c57'], ['蓝色桌面', '#2f5d8a', '#454c57'], ['照片桌面', 'linear-gradient(135deg,#3b2f4a,#b8693f 55%,#e9c46a)', '#454c57']];
-function setCoat(i) { const c = COATS[i]; for (const k of ['fur', 'patch', 'line', 'eye', 'whisker', 'stripe', 'inner']) M[k].color.set(c[k]); M.body.color.set('#ffffff'); M.ear.color.set(c.fur); paintCoat(c); M.lid.color.set(c.fur); whiskers.forEach(w => w.pivot.scale.setScalar(0.78)); { const pale = c.fur === '#f8f6ef', o = pale ? '#b5b1a2' : '#f1eee2', w = pale ? 0.7 : 1; renderer.domElement.style.filter = [[w, 0], [-w, 0], [0, w], [0, -w]].map(([x, y]) => `drop-shadow(${x}px ${y}px 0 ${o})`).join(' '); } M.shut.color.set(c.fur === '#101010' || c.fur === '#151515' ? c.eye : c.line); M.whiskerOut.color.set(c.whiskerOut || c.line); muzzle.visible = false; chest.visible = false; hitColor.set(c.eye); [...stageEl.querySelectorAll('#coats button')].forEach((b, n) => b.setAttribute('aria-pressed', n === i)); }
+const coatLuma = hex => { const n = parseInt(hex.slice(1), 16); return (0.2126 * (n >> 16 & 255) + 0.7152 * (n >> 8 & 255) + 0.0722 * (n & 255)) / 255; };   // [7paws] brightness judged from the colour itself so photo-derived coats work too
+function applyCoat(c) { const furLum = coatLuma(c.fur); for (const k of ['fur', 'patch', 'line', 'eye', 'whisker', 'stripe', 'inner']) M[k].color.set(c[k]); M.body.color.set('#ffffff'); M.ear.color.set(c.fur); paintCoat(c); M.lid.color.set(c.fur); whiskers.forEach(w => w.pivot.scale.setScalar(0.78)); { const pale = furLum > 0.78, o = pale ? '#b5b1a2' : '#f1eee2', w = pale ? 0.7 : 1; renderer.domElement.style.filter = [[w, 0], [-w, 0], [0, w], [0, -w]].map(([x, y]) => `drop-shadow(${x}px ${y}px 0 ${o})`).join(' '); } M.shut.color.set(furLum < 0.16 ? c.eye : c.line); M.whiskerOut.color.set(c.whiskerOut || c.line); muzzle.visible = false; chest.visible = false; hitColor.set(c.eye); }
+function setCoat(i) { applyCoat(COATS[i]); [...stageEl.querySelectorAll('#coats button')].forEach((b, n) => b.setAttribute('aria-pressed', n === i)); }
 function setWall(i) { stageEl.style.background = WALLS[i][1]; deskMat.color.set(WALLS[i][2]); [...stageEl.querySelectorAll('#walls button')].forEach((b, n) => b.setAttribute('aria-pressed', n === i)); }
 COATS.forEach((c, i) => { const b = document.createElement('button'); b.type = 'button'; b.innerHTML = `<span class="sw" style="background:${c.fur}"></span>${c.name}`; b.onclick = () => setCoat(i); $('coats').appendChild(b); });
 WALLS.forEach((w, i) => { const b = document.createElement('button'); b.type = 'button'; b.innerHTML = `<span class="sw" style="background:${w[1]}"></span>${w[0]}`; b.onclick = () => setWall(i); $('walls').appendChild(b); });
@@ -672,6 +674,8 @@ return {
       if (!showKeyLabels) { S.chips.forEach(c => c.el.remove()); S.chips = []; }
     }
   },
+  // [7paws] whole-palette coat (photo-derived); takes the same shape as a COATS entry.
+  setCustomCoat(c) { applyCoat(c); },
   // The mouse is being moved somewhere on the system. No position is involved; the paw goes to the mouse and nudges it.
   mouseMoved() { const t = performance.now(); wake(t); S.lastMouse = t; S.wigX = clamp(S.wigX + rnd(-0.07, 0.07), -0.16, 0.16); S.wigZ = clamp(S.wigZ + rnd(-0.06, 0.06), -0.12, 0.12); },
   clear() { [...S.down.keys()].forEach(keyUp); shownKeys = new Set(); downAt.clear(); buttonsDown = 0; buttonsAt = 0; S.mouseDown = false; },
