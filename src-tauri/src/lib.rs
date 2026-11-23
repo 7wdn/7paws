@@ -148,6 +148,7 @@ fn cursor_pos_for(_win: &WebviewWindow) -> Option<(f64, f64)> {
 
 fn start_hit_test_loop(
     app: AppHandle,
+    settings: Arc<Mutex<AppSettings>>,
     menu_open: Arc<AtomicBool>,
     dragging: Arc<AtomicBool>,
     regions: Arc<Mutex<Vec<[f64; 4]>>>,
@@ -181,9 +182,15 @@ fn start_hit_test_loop(
             let inside = rx >= 0.0 && rx <= 1.0 && ry >= 0.0 && ry <= 1.0;
             let forced = menu_open.load(Ordering::Relaxed) || dragging.load(Ordering::Relaxed);
 
+            let locked = settings
+                .lock()
+                .map(|s| s.click_through_locked)
+                .unwrap_or(false);
+            let effective_locked = locked && !input_hook::is_alt_pressed();
+
             let over = if forced {
                 true
-            } else if !inside {
+            } else if effective_locked || !inside {
                 false
             } else {
                 regions
@@ -252,6 +259,7 @@ fn update_settings(
     patch.normalize();
     s.scale = patch.scale;
     s.always_on_top = patch.always_on_top;
+    s.click_through_locked = patch.click_through_locked;
     s.purr_pet = patch.purr_pet;
     s.purr_sleep = patch.purr_sleep;
     s.autostart = patch.autostart;
@@ -391,10 +399,11 @@ pub fn run() {
                 let _ = win.set_position(pos);
             }
 
-            tray::setup_tray(&handle)?;
+            tray::setup_tray(&handle, settings_setup.clone())?;
             input_hook::start_global_hooks(handle.clone(), settings_setup.clone());
             start_hit_test_loop(
                 handle.clone(),
+                settings_setup.clone(),
                 menu_setup.clone(),
                 drag_setup.clone(),
                 regions_setup.clone(),

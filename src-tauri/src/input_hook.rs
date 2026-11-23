@@ -3,6 +3,7 @@ use crate::keymap;
 #[cfg(target_os = "macos")]
 use crate::keymap_macos;
 use serde::Serialize;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -56,6 +57,35 @@ enum RawHookMsg {
 }
 
 static HOOK_TX: OnceLock<mpsc::Sender<RawHookMsg>> = OnceLock::new();
+static ALT_HELD: AtomicBool = AtomicBool::new(false);
+
+fn is_alt_vk(vk: u32) -> bool {
+    #[cfg(windows)]
+    {
+        matches!(vk, 0x12 | 0xA4 | 0xA5)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        matches!(vk, 0x3A | 0x3D)
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
+    {
+        let _ = vk;
+        false
+    }
+}
+
+pub fn is_alt_pressed() -> bool {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_MENU};
+        let async_down = unsafe { (GetAsyncKeyState(VK_MENU as i32) as u16 & 0x8000) != 0 };
+        if async_down {
+            return true;
+        }
+    }
+    ALT_HELD.load(Ordering::Relaxed)
+}
 
 fn code_for_raw(vk: u32, scan: u32, extended: bool) -> &'static str {
     #[cfg(windows)]
@@ -93,6 +123,9 @@ pub fn start_global_hooks(app: AppHandle, settings: Arc<Mutex<AppSettings>>) {
                     scan,
                     extended,
                 } => {
+                    if is_alt_vk(vk) {
+                        ALT_HELD.store(true, Ordering::Relaxed);
+                    }
                     let privacy = settings
                         .lock()
                         .map(|s| s.privacy_mode)
@@ -135,6 +168,9 @@ pub fn start_global_hooks(app: AppHandle, settings: Arc<Mutex<AppSettings>>) {
                     scan,
                     extended,
                 } => {
+                    if is_alt_vk(vk) {
+                        ALT_HELD.store(false, Ordering::Relaxed);
+                    }
                     let privacy = settings
                         .lock()
                         .map(|s| s.privacy_mode)
