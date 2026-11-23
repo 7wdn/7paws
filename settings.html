@@ -64,8 +64,14 @@
               <input id="mcpEnabled" type="checkbox" />
             </label>
           </div>
-          <input id="mcpConfig" class="cat-name mcp-config" type="text" readonly spellcheck="false" aria-label="MCP 配置" />
-          <div class="menu-hint mcp-hint">复制这段配置到 Qoder / Claude 等 AI 客户端</div>
+          <div class="mcp-row">
+            <button id="mcpClientSelect" class="dropdown" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="MCP 客户端">
+              <span class="dropdown-label">Qoder</span>
+              <span class="dropdown-caret">▾</span>
+            </button>
+            <button id="mcpCopyBtn" class="btn ghost mcp-copy" type="button">复制</button>
+          </div>
+          <div id="mcpLocation" class="menu-hint mcp-hint">写进 ~/.qoder/mcp.json</div>
         </div>
 
         <div class="menu-section">

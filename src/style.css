@@ -679,13 +679,40 @@ body.settings-body .menu-head {
   display: block;
 }
 
-.mcp-config {
+.mcp-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
   margin-top: 8px;
-  margin-bottom: 4px;
-  font-family: Consolas, "SF Mono", monospace;
-  font-size: 9.5px;
+}
+
+.mcp-row .dropdown {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mcp-copy {
+  flex: 0 0 auto;
+  padding: 0 10px;
+}
+
+.rec-badge {
+  padding: 1px 4px;
+  border-radius: 5px;
+  background: var(--accent-soft);
+  color: #8a5a12;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.dropdown-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
 }
 
 .mcp-hint {
-  margin-top: 2px;
+  margin-top: 6px;
 }

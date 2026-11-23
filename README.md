@@ -112,20 +112,18 @@ tccutil reset All com.qoder.7paws
 
 7paws 内置一个不依赖 Node/Python 的 stdio MCP 服务：把自家猫的照片发给 AI 客户端，AI 读取照片后生成配色和斑纹，运行中的小猫约 1 秒内热更新。
 
-MCP 客户端配置（Windows，路径按实际安装位置调整）：
+设置窗口「AI 接入（MCP）」里选择你用的客户端（Qoder 优先，共 15 个：Claude Code、Cursor、CodeBuddy、ZCode、TRAE、VS Code、Windsurf、Codex、DeepSeek Harness、OpenCode、Pi、Cherry Studio、WorkBuddy、Antigravity），点「复制」即可拿到对应格式（`mcpServers` / VS Code 的 `servers` / Codex 的 TOML / DeepSeek Harness 的 YAML / OpenCode 的 `mcp` 数组）和写入位置。通用的 stdio 配置形如：
 
 ```json
 {
   "mcpServers": {
     "7paws": {
-      "command": "%LOCALAPPDATA%\\7paws\\7paws.exe",
+      "command": "安装目录\\7paws.exe",
       "args": ["--mcp"]
     }
   }
 }
 ```
-
-macOS 使用 `/Applications/7paws.app/Contents/MacOS/7paws`（参数 `--mcp`）。
 
 - 工具：`list_cats`、`get_cat_schema`（配色语义、四种花纹、斑纹坐标与模板）、`upsert_cat`（创建/覆盖一只猫并切换）、`switch_cat`、`delete_cat`。
 - 设置窗口的「AI 接入（MCP）」一栏可以关闭/开启 MCP，并直接复制含当前程序路径的客户端配置。
