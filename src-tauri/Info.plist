@@ -4,5 +4,7 @@
 <dict>
   <key>LSUIElement</key>
   <true/>
+  <key>NSInputMonitoringUsageDescription</key>
+  <string>7paws 需要读取全局键盘和鼠标输入来驱动小猫动作，不会记录、保存或上传按键内容。</string>
 </dict>
 </plist>
