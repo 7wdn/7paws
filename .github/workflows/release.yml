@@ -188,6 +188,14 @@ jobs:
           path: release
           merge-multiple: true
 
+      - name: Flatten assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd release
+          find . -mindepth 2 -type f \( -name '*-setup.exe' -o -name '*.dmg' -o -name '*-portable.zip' \) -exec mv -f {} . \;
+          find . -mindepth 1 -type d -empty -delete
+
       - name: Verify assets
         shell: bash
         run: |
