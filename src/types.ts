@@ -1,11 +1,25 @@
-export type CustomCoatPattern = "solid" | "bicolor" | "tabby" | "calico";
+export type CatPattern = "solid" | "bicolor" | "tabby" | "calico";
 
-export interface CustomCoat {
+export interface CatSpot {
+  part: "head" | "body";
+  x: number;
+  y: number;
+  rx: number;
+  ry: number;
+  rotation: number;
+  color: string;
+  opacity: number;
+}
+
+export interface CustomCat {
+  id: string;
+  name: string;
   fur: string;
   patch: string;
   accent: string;
   eye: string;
-  pattern: CustomCoatPattern;
+  pattern: CatPattern;
+  spots: CatSpot[];
 }
 
 export interface AppSettings {
@@ -21,7 +35,6 @@ export interface AppSettings {
   privacyMode: boolean;
   leftMouse: boolean;
   coat: string;
-  customCoat: CustomCoat;
   sleepMinutes: number;
   showKeyLabels: boolean;
   keyboardLayout: "65" | "104";

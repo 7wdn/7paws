@@ -619,3 +619,44 @@ body.settings-body .menu-head {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
+
+.cat-name {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 11px;
+}
+
+.cat-name:focus {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.spots-row {
+  margin-bottom: 8px;
+}
+
+.spots-row .btn {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+}
+
+.custom-actions {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.custom-actions .btn {
+  flex: 1;
+}
+
+.coat-add {
+  justify-content: center;
+  color: var(--muted);
+}

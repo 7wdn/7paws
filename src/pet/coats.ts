@@ -121,21 +121,6 @@ export const COATS: Coat[] = [
     muzzle: "#cdd5da",
     blush: "#e3a9a4",
   },
-  {
-    // Menu entry only: the 3D palette comes from customCoat settings at runtime.
-    id: "custom",
-    name: "我的猫",
-    fur: "#e9973f",
-    paw: "#fbe8c9",
-    inner: "#f2b9b0",
-    eye: "#e2b93b",
-    pupil: "#161713",
-    whisker: "#f4f4ee",
-    outline: "#f1eee2",
-    line: "#7a4312",
-    sock: 0.18,
-    pattern: "solid",
-  },
 ];
 
 export function coatById(id: string): Coat {
