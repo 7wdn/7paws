@@ -86,17 +86,16 @@ body {
 
 body.settings-body .menu {
   position: fixed;
-  top: 12px;
-  left: 12px;
-  bottom: 12px;
-  right: auto;
-  width: 244px;
+  inset: 0;
+  width: auto;
   max-width: none;
   max-height: none;
+  box-shadow: none;
 }
 
 body.settings-body .menu-head {
   align-items: center;
+  cursor: move;
 }
 
 .menu-close {

@@ -18,8 +18,8 @@ pub const BASE_WIDTH: f64 = 660.0;
 pub const BASE_HEIGHT: f64 = 480.0;
 pub const BASE_WIDTH_104: f64 = 740.0;
 pub const BASE_HEIGHT_104: f64 = 520.0;
-pub const SETTINGS_WIDTH: f64 = 268.0;
-pub const SETTINGS_HEIGHT: f64 = 540.0;
+pub const SETTINGS_WIDTH: f64 = 244.0;
+pub const SETTINGS_HEIGHT: f64 = 516.0;
 
 pub struct AppState {
     settings: Arc<Mutex<AppSettings>>,
