@@ -669,10 +669,12 @@ body.settings-body .menu-head {
 
 .menu-gh {
   background: transparent;
+  color: var(--ink);
 }
 
 .menu-gh:hover {
   background: rgba(25, 25, 23, 0.08);
+  color: var(--ink);
 }
 
 .menu-gh svg {
