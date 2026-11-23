@@ -188,6 +188,7 @@ pub fn start_global_hooks(app: AppHandle, settings: Arc<Mutex<AppSettings>>) {
                     }
                 }
                 RawHookMsg::MouseDown(btn) => {
+                    crate::close_settings_if_clicked_outside(&app);
                     let _ = app.emit(
                         "cat-input",
                         CatInput::MouseDown {

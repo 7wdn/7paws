@@ -364,6 +364,54 @@ fn place_settings_window(app: &AppHandle, win: &WebviewWindow) {
 // thread: the inline creation deadlocks WebView2 initialization.
 static SETTINGS_CREATE_LOCK: Mutex<()> = Mutex::new(());
 
+fn point_in_rect(pos: PhysicalPosition<i32>, size: tauri::PhysicalSize<u32>, x: f64, y: f64) -> bool {
+    x >= pos.x as f64
+        && x <= (pos.x + size.width as i32) as f64
+        && y >= pos.y as f64
+        && y <= (pos.y + size.height as i32) as f64
+}
+
+pub(crate) fn close_settings_if_clicked_outside(app: &AppHandle) {
+    let Some(settings) = app.get_webview_window("settings") else {
+        return;
+    };
+    if !settings.is_visible().unwrap_or(false) {
+        return;
+    }
+    let Some((cx, cy)) = cursor_pos_for(&settings) else {
+        return;
+    };
+    let (Ok(pos), Ok(size)) = (settings.outer_position(), settings.outer_size()) else {
+        return;
+    };
+    if point_in_rect(pos, size, cx, cy) {
+        return;
+    }
+    if let Some(pet) = app.get_webview_window("main") {
+        if pet.is_visible().unwrap_or(false) {
+            if let (Ok(ppos), Ok(psize)) = (pet.outer_position(), pet.outer_size()) {
+                if point_in_rect(ppos, psize, cx, cy) {
+                    let _ = settings.hide();
+                    return;
+                }
+            }
+        }
+    }
+    // Native <select> popups live outside the window but keep it focused, so
+    // wait for the click to settle and only close if focus actually moved.
+    let app = app.clone();
+    thread::spawn(move || {
+        thread::sleep(Duration::from_millis(160));
+        if let Some(settings) = app.get_webview_window("settings") {
+            if settings.is_visible().unwrap_or(false)
+                && !settings.is_focused().unwrap_or(true)
+            {
+                let _ = settings.hide();
+            }
+        }
+    });
+}
+
 pub(crate) fn show_settings_window(app: &AppHandle) {
     let app = app.clone();
     thread::spawn(move || {
