@@ -12,6 +12,8 @@ const menuEl = document.getElementById("menu") as HTMLDivElement;
 const coatsEl = document.getElementById("coats") as HTMLDivElement;
 const scaleSlider = document.getElementById("scaleSlider") as HTMLInputElement;
 const scaleValue = document.getElementById("scaleValue") as HTMLSpanElement;
+const opacitySlider = document.getElementById("opacitySlider") as HTMLInputElement;
+const opacityValue = document.getElementById("opacityValue") as HTMLSpanElement;
 const sleepSelect = document.getElementById("sleepSelect") as HTMLButtonElement;
 const layoutSelect = document.getElementById("layoutSelect") as HTMLButtonElement;
 const sleepLabel = sleepSelect.querySelector(".dropdown-label") as HTMLSpanElement;
@@ -325,6 +327,8 @@ function buildCoatButtons() {
 function syncControls() {
   scaleSlider.value = String(Math.round(settings.scale * 100));
   scaleValue.textContent = `${Math.round(settings.scale * 100)}%`;
+  opacitySlider.value = String(Math.round(settings.opacity * 100));
+  opacityValue.textContent = `${Math.round(settings.opacity * 100)}%`;
   sleepLabel.textContent = sleepChoices.find((c) => c.value === String(settings.sleepMinutes))?.label
     ?? `${settings.sleepMinutes} 分钟`;
   layoutLabel.textContent = layoutChoices.find((c) => c.value === settings.keyboardLayout)?.label
@@ -387,6 +391,15 @@ function bindControls() {
 
   scaleSlider.addEventListener("change", () => {
     void saveSettings({ scale: Number(scaleSlider.value) / 100 });
+  });
+
+  opacitySlider.addEventListener("input", () => {
+    const pct = Number(opacitySlider.value);
+    opacityValue.textContent = `${pct}%`;
+  });
+
+  opacitySlider.addEventListener("change", () => {
+    void saveSettings({ opacity: Number(opacitySlider.value) / 100 });
   });
 
   sleepSelect.addEventListener("click", () => {
