@@ -1,11 +1,18 @@
+#![recursion_limit = "256"]
+
+mod cats;
 mod config;
 mod input_hook;
 mod keymap;
 #[cfg(target_os = "macos")]
 mod keymap_macos;
+mod mcp;
 mod tray;
 
-use config::{load_settings, save_settings, set_autostart, AppSettings, MAX_SCALE, MIN_SCALE};
+use config::{
+    config_path, load_settings, save_settings, set_autostart, try_load_settings, AppSettings,
+    MAX_SCALE, MIN_SCALE,
+};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -23,6 +30,7 @@ pub const SETTINGS_HEIGHT: f64 = 516.0;
 
 pub struct AppState {
     settings: Arc<Mutex<AppSettings>>,
+    custom_cats: Arc<Mutex<Vec<cats::CustomCat>>>,
     dragging: Arc<AtomicBool>,
     hit_regions: Arc<Mutex<Vec<[f64; 4]>>>,
 }
@@ -267,7 +275,17 @@ fn update_settings(
     s.privacy_mode = patch.privacy_mode;
     s.left_mouse = patch.left_mouse;
     s.coat = patch.coat;
-    s.custom_coat = patch.custom_coat.clone();
+    if !cats::is_builtin_coat(&s.coat) {
+        let known = state
+            .custom_cats
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|c| c.id == s.coat);
+        if !known {
+            s.coat = "tuxedo".to_string();
+        }
+    }
     s.sleep_minutes = patch.sleep_minutes;
     s.show_key_labels = patch.show_key_labels;
     s.keyboard_layout = patch.keyboard_layout;
@@ -484,6 +502,64 @@ async fn close_settings(app: AppHandle) {
 }
 
 #[tauri::command]
+fn get_custom_cats(state: State<'_, AppState>) -> Vec<cats::CustomCat> {
+    state.custom_cats.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn save_custom_cat(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    mut cat: cats::CustomCat,
+    activate: bool,
+) -> cats::CustomCat {
+    let mut list = state.custom_cats.lock().unwrap();
+    if cat.id.trim().is_empty() {
+        cat.id = cats::unique_cat_id(&cat.name, &list);
+    }
+    let saved = cats::upsert_custom_cat(&mut list, cat);
+    let snapshot = list.clone();
+    drop(list);
+
+    if activate {
+        let mut s = state.settings.lock().unwrap();
+        s.coat = saved.id.clone();
+        save_settings(&s);
+        let out = s.clone();
+        drop(s);
+        let _ = app.emit("cat-settings", out);
+    }
+    let _ = app.emit("cat-cats", snapshot);
+    saved
+}
+
+#[tauri::command]
+fn delete_custom_cat(app: AppHandle, state: State<'_, AppState>, id: String) -> bool {
+    let mut list = state.custom_cats.lock().unwrap();
+    let removed = cats::delete_custom_cat(&mut list, &id);
+    let snapshot = list.clone();
+    drop(list);
+    if !removed {
+        return false;
+    }
+    let fallback = {
+        let mut s = state.settings.lock().unwrap();
+        if s.coat == id {
+            s.coat = "tuxedo".to_string();
+            save_settings(&s);
+            Some(s.clone())
+        } else {
+            None
+        }
+    };
+    if let Some(out) = fallback {
+        let _ = app.emit("cat-settings", out);
+    }
+    let _ = app.emit("cat-cats", snapshot);
+    true
+}
+
+#[tauri::command]
 fn set_hit_regions(state: State<'_, AppState>, regions: Vec<[f64; 4]>) {
     let mut sanitized: Vec<[f64; 4]> = Vec::new();
     for rect in regions.into_iter().take(8) {
@@ -527,20 +603,151 @@ fn quit_app(app: AppHandle) {
     app.exit(0);
 }
 
+fn file_mtime(path: &std::path::Path) -> Option<std::time::SystemTime> {
+    std::fs::metadata(path).ok().and_then(|m| m.modified().ok())
+}
+
+fn settings_equal_ignoring_position(a: &AppSettings, b: &AppSettings) -> bool {
+    let mut a = a.clone();
+    let mut b = b.clone();
+    a.x = None;
+    b.x = None;
+    a.y = None;
+    b.y = None;
+    a == b
+}
+
+// The MCP stdio server and hand edits write these files directly; poll them so
+// a running pet picks the change up live. Parsing failures are treated as a
+// half-written file and skipped until the next tick.
+fn start_storage_watcher(
+    app: AppHandle,
+    settings: Arc<Mutex<AppSettings>>,
+    custom_cats: Arc<Mutex<Vec<cats::CustomCat>>>,
+) {
+    thread::spawn(move || {
+        let mut last_settings = file_mtime(&config_path());
+        let mut last_cats = file_mtime(&cats::cats_path());
+        loop {
+            thread::sleep(Duration::from_millis(400));
+            let now_cats = file_mtime(&cats::cats_path());
+            if now_cats != last_cats {
+                last_cats = now_cats;
+                if let Some(disk) = cats::try_load_custom_cats() {
+                    let changed = {
+                        let mut current = custom_cats.lock().unwrap();
+                        if *current == disk {
+                            false
+                        } else {
+                            *current = disk.clone();
+                            true
+                        }
+                    };
+                    if changed {
+                        let fallback = {
+                            let mut s = settings.lock().unwrap();
+                            if !cats::is_builtin_coat(&s.coat)
+                                && !disk.iter().any(|c| c.id == s.coat)
+                            {
+                                s.coat = "tuxedo".to_string();
+                                save_settings(&s);
+                                Some(s.clone())
+                            } else {
+                                None
+                            }
+                        };
+                        let _ = app.emit("cat-cats", disk);
+                        if let Some(out) = fallback {
+                            let _ = app.emit("cat-settings", out);
+                        }
+                    }
+                }
+            }
+            let now_settings = file_mtime(&config_path());
+            if now_settings != last_settings {
+                last_settings = now_settings;
+                if let Some(mut disk) = try_load_settings() {
+                    let adopted = {
+                        let mut s = settings.lock().unwrap();
+                        if settings_equal_ignoring_position(&s, &disk) {
+                            None
+                        } else {
+                            if !cats::is_builtin_coat(&disk.coat) {
+                                let known = custom_cats
+                                    .lock()
+                                    .unwrap()
+                                    .iter()
+                                    .any(|c| c.id == disk.coat);
+                                if !known {
+                                    disk.coat = "tuxedo".to_string();
+                                }
+                            }
+                            // Window position stays runtime-owned.
+                            disk.x = s.x;
+                            disk.y = s.y;
+                            let prev_scale = s.scale;
+                            let prev_layout = s.keyboard_layout.clone();
+                            let prev_top = s.always_on_top;
+                            *s = disk.clone();
+                            Some((disk, prev_scale, prev_layout, prev_top))
+                        }
+                    };
+                    if let Some((out, prev_scale, prev_layout, prev_top)) = adopted {
+                        if prev_top != out.always_on_top {
+                            if let Some(win) = app.get_webview_window("main") {
+                                let _ = win.set_always_on_top(out.always_on_top);
+                            }
+                        }
+                        if (out.scale - prev_scale).abs() > 0.0005
+                            || out.keyboard_layout != prev_layout
+                        {
+                            if let Some(win) = app.get_webview_window("main") {
+                                let _ = resize_anchored_bottom_center(
+                                    &win,
+                                    &out.keyboard_layout,
+                                    out.scale,
+                                );
+                            }
+                        }
+                        let _ = app.emit("cat-settings", out);
+                    }
+                }
+            }
+        }
+    });
+}
+
+pub fn run_mcp_stdio() {
+    mcp::run_stdio();
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let initial = load_settings();
+    let mut initial = load_settings();
+    let custom_cats = Arc::new(Mutex::new(cats::load_custom_cats()));
+    if !cats::is_builtin_coat(&initial.coat)
+        && !custom_cats
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|c| c.id == initial.coat)
+    {
+        initial.coat = "tuxedo".to_string();
+        save_settings(&initial);
+    }
     let settings = Arc::new(Mutex::new(initial.clone()));
     let dragging = Arc::new(AtomicBool::new(false));
     let hit_regions = Arc::new(Mutex::new(default_regions()));
 
     let settings_setup = settings.clone();
+    let cats_setup = custom_cats.clone();
     let drag_setup = dragging.clone();
     let regions_setup = hit_regions.clone();
 
     tauri::Builder::default()
         .manage(AppState {
             settings: settings.clone(),
+            custom_cats: custom_cats.clone(),
             dragging,
             hit_regions,
         })
@@ -586,6 +793,7 @@ pub fn run() {
                 regions_setup.clone(),
             );
             start_position_watcher(handle.clone(), settings_setup.clone());
+            start_storage_watcher(handle.clone(), settings_setup.clone(), cats_setup.clone());
 
             Ok(())
         })
@@ -594,6 +802,9 @@ pub fn run() {
             update_settings,
             open_settings,
             close_settings,
+            get_custom_cats,
+            save_custom_cat,
+            delete_custom_cat,
             set_dragging,
             set_hit_regions,
             reset_position,
