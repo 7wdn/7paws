@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>7paws</title>
+  </head>
+  <body>
+    <script>
+      (function () {
+        function show(message) {
+          var el = document.createElement("div");
+          el.style.cssText =
+            "position:fixed;z-index:9999;left:0;right:0;top:0;padding:8px 10px;" +
+            "background:#b3261e;color:#fff;font:12px/1.45 Consolas,monospace;white-space:pre-wrap;";
+          el.textContent = "启动失败: " + message;
+          document.body.appendChild(el);
+        }
+        window.addEventListener("error", function (e) {
+          if (e && e.message) show(e.message);
+          else if (e && e.target && e.target.src) show("failed to load " + e.target.src);
+        }, true);
+        window.addEventListener("unhandledrejection", function (e) {
+          show(String((e && e.reason) || e));
+        });
+      })();
+    </script>
+    <div id="stage" role="img" aria-label="7paws 小猫桌宠预览"></div>
+
+    <div id="menu" class="menu hidden" role="menu">
+      <div class="menu-head">
+        <span class="menu-title">7paws</span>
+        <span class="menu-sub">按住猫头可以摸它</span>
+      </div>
+
+      <div class="menu-scroll">
+      <div class="menu-section">
+        <div class="menu-label">毛色</div>
+        <div id="coats" class="coat-grid"></div>
+      </div>
+
+      <div class="menu-section">
+        <div class="menu-label">
+          <span>大小</span>
+          <span id="scaleValue" class="menu-value">100%</span>
+        </div>
+        <input id="scaleSlider" class="slider" type="range" min="60" max="150" step="5" />
+      </div>
+
+      <div class="menu-section menu-row">
+        <label class="menu-label" for="layoutSelect">键盘</label>
+        <select id="layoutSelect" class="select">
+          <option value="65">65% 紧凑</option>
+          <option value="104">104 键全尺寸</option>
+        </select>
+      </div>
+
+      <div class="menu-section menu-row">
+        <label class="menu-label" for="sleepSelect">多久睡着</label>
+        <select id="sleepSelect" class="select">
+          <option value="1">1 分钟</option>
+          <option value="3">3 分钟</option>
+          <option value="5">5 分钟</option>
+          <option value="10">10 分钟</option>
+          <option value="30">30 分钟</option>
+          <option value="0">不睡</option>
+        </select>
+      </div>
+
+      <div class="menu-section menu-toggles">
+        <label class="toggle-row" for="leftMouse">
+          <span>鼠标在左手边</span>
+          <input id="leftMouse" type="checkbox" />
+        </label>
+        <label class="toggle-row" for="privacyMode">
+          <span>隐私模式</span>
+          <input id="privacyMode" type="checkbox" />
+        </label>
+        <label class="toggle-row" for="purrPet">
+          <span>按住呼噜声</span>
+          <input id="purrPet" type="checkbox" />
+        </label>
+        <label class="toggle-row" for="purrSleep">
+          <span>自动睡眠呼噜声</span>
+          <input id="purrSleep" type="checkbox" />
+        </label>
+        <label class="toggle-row" for="showKeyLabels">
+          <span>显示按键字母</span>
+          <input id="showKeyLabels" type="checkbox" />
+        </label>
+      </div>
+      </div>
+
+      <div class="menu-actions">
+        <button id="resetPosBtn" class="btn ghost" type="button">回到右下角</button>
+        <button id="quitBtn" class="btn danger" type="button">退出</button>
+      </div>
+    </div>
+
+    <script src="/vendor/three.min.js"></script>
+    <script src="/vendor/7paws.js"></script>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
