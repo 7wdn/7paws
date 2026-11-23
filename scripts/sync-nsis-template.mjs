@@ -116,7 +116,11 @@ async function generate() {
     !upstream.startsWith("Unicode true") ||
     upstream.split(/\r?\n/).length < 500
   ) {
-    throw new Error("no usable NSIS template found in the Tauri CLI module");
+    throw new Error(
+      process.platform === "win32"
+        ? "no usable NSIS template found in the Tauri CLI module"
+        : "no usable NSIS template found: the NSIS bundler only ships in the Windows CLI build, run this check on Windows",
+    );
   }
   const lines = upstream.split(/\r?\n/);
 
