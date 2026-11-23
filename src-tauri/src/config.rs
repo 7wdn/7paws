@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-pub const MIN_SCALE: f64 = 0.6;
+pub const MIN_SCALE: f64 = 0.3;
 pub const MAX_SCALE: f64 = 1.5;
 
 const COATS: [&str; 6] = ["tuxedo", "orange", "tabby", "calico", "white", "blue"];
