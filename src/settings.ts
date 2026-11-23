@@ -26,6 +26,8 @@ const closeBtn = document.getElementById("closeBtn") as HTMLButtonElement;
 
 let settings: AppSettings = { ...defaultSettings };
 let hideTimer = 0;
+let focusedOnce = false;
+let focusedAt = 0;
 
 function hide() {
   window.clearTimeout(hideTimer);
@@ -172,9 +174,11 @@ async function boot() {
     });
     void getCurrentWindow().onFocusChanged(({ payload: focused }) => {
       if (focused) {
+        focusedOnce = true;
+        focusedAt = performance.now();
         window.clearTimeout(hideTimer);
         void refresh();
-      } else {
+      } else if (focusedOnce && performance.now() - focusedAt > 600) {
         window.clearTimeout(hideTimer);
         hideTimer = window.setTimeout(hide, 150);
       }

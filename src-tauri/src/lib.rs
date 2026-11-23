@@ -307,7 +307,7 @@ fn place_settings_window(app: &AppHandle, win: &WebviewWindow) {
     let sf = pet.scale_factor().unwrap_or(1.0);
     let sw = (SETTINGS_WIDTH * sf).round() as i32;
     let sh = (SETTINGS_HEIGHT * sf).round() as i32;
-    let gap = (10.0 * sf).round() as i32;
+    let gap = (4.0 * sf).round() as i32;
     let monitor = pet
         .current_monitor()
         .ok()
@@ -324,16 +324,57 @@ fn place_settings_window(app: &AppHandle, win: &WebviewWindow) {
     } else {
         (0, 0, 1920, 1080)
     };
-    let mut x = pet_pos.x + pet_size.width as i32 + gap;
-    if x + sw > ax + aw {
-        x = pet_pos.x - gap - sw;
+    // Anchor to the visible cat/keyboard/mouse bounds instead of the window edge:
+    // both layouts leave a wide transparent margin around the drawing.
+    let regions = app
+        .state::<AppState>()
+        .hit_regions
+        .lock()
+        .map(|list| list.clone())
+        .unwrap_or_default();
+    let (nx0, nx1, ny1) = if regions.is_empty() {
+        (0.0, 1.0, 1.0)
+    } else {
+        let mut nx0 = 1.0f64;
+        let mut nx1 = 0.0f64;
+        let mut ny1 = 0.0f64;
+        for [x, y, w, h] in &regions {
+            nx0 = nx0.min(*x);
+            nx1 = nx1.max(x + w);
+            ny1 = ny1.max(y + h);
+        }
+        (nx0, nx1, ny1)
+    };
+    let pet_w = pet_size.width as f64;
+    let pet_h = pet_size.height as f64;
+    let content_left = pet_pos.x as f64 + nx0 * pet_w;
+    let content_right = pet_pos.x as f64 + nx1 * pet_w;
+    let content_bottom = pet_pos.y as f64 + ny1 * pet_h;
+
+    let mut x = content_right + gap as f64;
+    if x + sw as f64 > (ax + aw) as f64 {
+        x = content_left - gap as f64 - sw as f64;
     }
-    x = x.clamp(ax, (ax + aw - sw).max(ax));
-    let y = (pet_pos.y + pet_size.height as i32 - sh).clamp(ay, (ay + ah - sh).max(ay));
+    let x = (x.round() as i32).clamp(ax, (ax + aw - sw).max(ax));
+    let y = ((content_bottom - sh as f64).round() as i32).clamp(ay, (ay + ah - sh).max(ay));
     let _ = win.set_position(PhysicalPosition::new(x, y));
 }
 
+// Webview windows must not be created inside an IPC/tray callback on the main
+// thread: the inline creation deadlocks WebView2 initialization.
+static SETTINGS_CREATE_LOCK: Mutex<()> = Mutex::new(());
+
 pub(crate) fn show_settings_window(app: &AppHandle) {
+    let app = app.clone();
+    thread::spawn(move || {
+        let Ok(_guard) = SETTINGS_CREATE_LOCK.try_lock() else {
+            return;
+        };
+        show_settings_window_blocking(&app);
+    });
+}
+
+fn show_settings_window_blocking(app: &AppHandle) {
     if let Some(win) = app.get_webview_window("settings") {
         place_settings_window(app, &win);
         let _ = win.show();
@@ -353,12 +394,18 @@ pub(crate) fn show_settings_window(app: &AppHandle) {
     .shadow(false)
     .always_on_top(true)
     .skip_taskbar(true)
+    // Must match the main window: WebView2 rejects a second webview that
+    // requests different browser arguments against the shared environment.
+    .additional_browser_args("--autoplay-policy=no-user-gesture-required")
     .visible(false)
     .build();
-    if let Ok(win) = built {
-        place_settings_window(app, &win);
-        let _ = win.show();
-        let _ = win.set_focus();
+    match built {
+        Ok(win) => {
+            place_settings_window(app, &win);
+            let _ = win.show();
+            let _ = win.set_focus();
+        }
+        Err(e) => eprintln!("failed to open settings window: {e}"),
     }
 }
 
