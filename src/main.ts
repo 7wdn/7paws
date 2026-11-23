@@ -17,6 +17,7 @@ const scaleValue = document.getElementById("scaleValue") as HTMLSpanElement;
 const sleepSelect = document.getElementById("sleepSelect") as HTMLSelectElement;
 const layoutSelect = document.getElementById("layoutSelect") as HTMLSelectElement;
 const leftMouseInput = document.getElementById("leftMouse") as HTMLInputElement;
+const clickThroughLockedInput = document.getElementById("clickThroughLocked") as HTMLInputElement;
 const privacyInput = document.getElementById("privacyMode") as HTMLInputElement;
 const purrPetInput = document.getElementById("purrPet") as HTMLInputElement;
 const purrSleepInput = document.getElementById("purrSleep") as HTMLInputElement;
@@ -29,6 +30,7 @@ const fallbackSettings: AppSettings = {
   y: null,
   scale: 0.6,
   alwaysOnTop: true,
+  clickThroughLocked: false,
   purrPet: true,
   purrSleep: false,
   autostart: false,
@@ -77,6 +79,7 @@ function syncControls() {
   sleepSelect.value = String(settings.sleepMinutes);
   layoutSelect.value = settings.keyboardLayout;
   leftMouseInput.checked = settings.leftMouse;
+  clickThroughLockedInput.checked = settings.clickThroughLocked;
   privacyInput.checked = settings.privacyMode;
   purrPetInput.checked = settings.purrPet;
   purrSleepInput.checked = settings.purrSleep;
@@ -168,6 +171,9 @@ function bindMenu() {
 
   leftMouseInput.addEventListener("change", () => {
     void saveSettings({ leftMouse: leftMouseInput.checked });
+  });
+  clickThroughLockedInput.addEventListener("change", () => {
+    void saveSettings({ clickThroughLocked: clickThroughLockedInput.checked });
   });
   privacyInput.addEventListener("change", () => {
     void saveSettings({ privacyMode: privacyInput.checked });

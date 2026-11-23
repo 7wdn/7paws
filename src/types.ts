@@ -3,6 +3,7 @@ export interface AppSettings {
   y: number | null;
   scale: number;
   alwaysOnTop: boolean;
+  clickThroughLocked: boolean;
   purrPet: boolean;
   purrSleep: boolean;
   autostart: boolean;
