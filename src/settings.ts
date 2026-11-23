@@ -49,6 +49,12 @@ type ColorSlot = keyof Pick<CustomCat, "fur" | "patch" | "accent" | "eye">;
 let settings: AppSettings = { ...defaultSettings };
 let customCats: CustomCat[] = [];
 let coatGridKey = "";
+let deleteArmedAt = 0;
+
+function disarmDelete() {
+  deleteArmedAt = 0;
+  deleteCatBtn.textContent = "删除这只猫";
+}
 
 interface Choice {
   value: string;
@@ -374,6 +380,7 @@ function syncCoatGrid() {
 }
 
 function syncControls() {
+  disarmDelete();
   scaleSlider.value = String(Math.round(settings.scale * 100));
   scaleValue.textContent = `${Math.round(settings.scale * 100)}%`;
   opacitySlider.value = String(Math.round(settings.opacity * 100));
@@ -477,7 +484,6 @@ async function createCat() {
 async function removeActiveCat() {
   const cat = activeCat();
   if (!cat) return;
-  if (!window.confirm(`删除「${cat.name}」？`)) return;
   customCats = customCats.filter((c) => c.id !== cat.id);
   if (settings.coat === cat.id) settings = { ...settings, coat: "tuxedo" };
   syncControls();
@@ -646,7 +652,20 @@ function bindControls() {
     saveActiveCat({ spots: [] });
   });
 
-  deleteCatBtn.addEventListener("click", () => void removeActiveCat());
+  deleteCatBtn.addEventListener("click", () => {
+    // Two-step in-place confirmation: the native confirm() dialog shows the
+    // webview origin (localhost:1420 / tauri://localhost) and breaks the theme.
+    if (deleteArmedAt && Date.now() - deleteArmedAt < 3000) {
+      disarmDelete();
+      void removeActiveCat();
+      return;
+    }
+    deleteArmedAt = Date.now();
+    deleteCatBtn.textContent = "再点一次确认删除";
+    window.setTimeout(() => {
+      if (deleteArmedAt && Date.now() - deleteArmedAt >= 3000) disarmDelete();
+    }, 3050);
+  });
 
   coatCodeGen.addEventListener("click", () => {
     const cat = activeCat();
