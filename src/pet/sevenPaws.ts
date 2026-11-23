@@ -109,7 +109,7 @@ export class SevenPawsPet {
 
         const dx = this.smoothX - (this.layout === "104" ? 0.49 : 0.47);
         const dy = this.smoothY - 0.33;
-        this.api.setPointerNdc(Math.tanh(dx * 1.1), -Math.tanh(dy * 1.1));
+        this.api.setPointerNdc(Math.tanh(dx * 1.1), Math.tanh(dy * 1.1));
 
         if (this.hasRaw) {
           const rawDx = (ev.nx - this.rawX) * window.innerWidth;
