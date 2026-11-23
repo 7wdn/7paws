@@ -31,6 +31,7 @@ const mcpClientSelect = document.getElementById("mcpClientSelect") as HTMLButton
 const mcpClientLabel = mcpClientSelect.querySelector(".dropdown-label") as HTMLSpanElement;
 const mcpCopyBtn = document.getElementById("mcpCopyBtn") as HTMLButtonElement;
 const mcpLocation = document.getElementById("mcpLocation") as HTMLSpanElement;
+const updateBtn = document.getElementById("updateBtn") as HTMLButtonElement;
 const githubBtn = document.getElementById("githubBtn") as HTMLButtonElement;
 const resetBtn = document.getElementById("resetPosBtn") as HTMLButtonElement;
 const quitBtn = document.getElementById("quitBtn") as HTMLButtonElement;
@@ -230,6 +231,104 @@ async function copyMcpSnippet() {
   window.setTimeout(() => {
     mcpCopyBtn.textContent = "复制";
   }, 1600);
+}
+
+const updatePopup = document.createElement("div");
+updatePopup.className = "update-popup hidden";
+updatePopup.innerHTML = `<span class="update-text"></span><button class="btn ghost update-go" type="button" hidden>前往发布页</button>`;
+document.body.appendChild(updatePopup);
+const updateText = updatePopup.querySelector<HTMLSpanElement>(".update-text")!;
+const updateGoBtn = updatePopup.querySelector<HTMLButtonElement>(".update-go")!;
+
+let updateBusy = false;
+let updateTimer = 0;
+
+function closeUpdatePopup() {
+  updatePopup.classList.add("hidden");
+  window.clearTimeout(updateTimer);
+}
+
+function showUpdatePopup(message: string, hasUpdate: boolean) {
+  closeUpdatePopup();
+  updateText.textContent = message;
+  updateGoBtn.hidden = !hasUpdate;
+  updatePopup.classList.remove("hidden");
+  const rect = updateBtn.getBoundingClientRect();
+  const width = updatePopup.offsetWidth;
+  const left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8));
+  updatePopup.style.left = `${left}px`;
+  updatePopup.style.top = `${rect.bottom + 6}px`;
+  updateTimer = window.setTimeout(closeUpdatePopup, 4000);
+}
+
+function parseVersion(value: string): number[] {
+  return value
+    .replace(/^v/i, "")
+    .split("-")[0]
+    .split(".")
+    .map((part) => parseInt(part, 10) || 0);
+}
+
+function isNewerVersion(remote: string, current: string): boolean {
+  const a = parseVersion(remote);
+  const b = parseVersion(current);
+  for (let i = 0; i < Math.max(a.length, b.length); i += 1) {
+    if ((a[i] ?? 0) !== (b[i] ?? 0)) return (a[i] ?? 0) > (b[i] ?? 0);
+  }
+  return false;
+}
+
+// User-initiated only: no telemetry. jsDelivr mirrors the repo tags with CORS
+// and no API quota; the GitHub releases API is only a fallback (it rate-limits
+// unauthenticated callers, which shared IPs hit quickly).
+async function fetchLatestVersion(signal: AbortSignal): Promise<string | null> {
+  try {
+    const response = await fetch("https://data.jsdelivr.com/v1/packages/gh/7wdn/7paws", { signal });
+    if (response.ok) {
+      const data = (await response.json()) as { versions?: { version?: string }[] };
+      let latest = "";
+      for (const entry of data.versions ?? []) {
+        const version = String(entry.version ?? "").trim();
+        if (version && (!latest || isNewerVersion(version, latest))) latest = version;
+      }
+      if (latest) return latest.startsWith("v") ? latest : `v${latest}`;
+    }
+  } catch {
+    // Fall through to the releases API.
+  }
+  const response = await fetch("https://api.github.com/repos/7wdn/7paws/releases/latest", {
+    signal,
+    headers: { Accept: "application/vnd.github+json" },
+  });
+  if (!response.ok) return null;
+  const release = (await response.json()) as { tag_name?: string };
+  const tag = String(release.tag_name ?? "").trim();
+  return tag || null;
+}
+
+async function checkForUpdates() {
+  if (updateBusy) return;
+  updateBusy = true;
+  updateBtn.classList.add("spinning");
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 8000);
+  try {
+    const latest = await fetchLatestVersion(controller.signal);
+    const current = isTauri
+      ? await invoke<string>("get_app_version").catch(() => "0.0.0")
+      : "0.0.0";
+    if (latest && isNewerVersion(latest, current)) {
+      showUpdatePopup(`发现新版本 ${latest}`, true);
+    } else {
+      showUpdatePopup(`已是最新版本（${current}）`, false);
+    }
+  } catch {
+    showUpdatePopup("检查失败，请稍后再试", false);
+  } finally {
+    window.clearTimeout(timer);
+    updateBtn.classList.remove("spinning");
+    updateBusy = false;
+  }
 }
 
 const dropdownPopup = document.createElement("div");
@@ -816,6 +915,17 @@ function bindControls() {
 
   mcpCopyBtn.addEventListener("click", () => void copyMcpSnippet());
 
+  updateBtn.addEventListener("click", () => void checkForUpdates());
+
+  updateGoBtn.addEventListener("click", () => {
+    closeUpdatePopup();
+    if (isTauri) {
+      void invoke("open_release_page");
+    } else {
+      window.open("https://github.com/7wdn/7paws/releases/latest", "_blank");
+    }
+  });
+
   githubBtn.addEventListener("click", () => {
     if (isTauri) {
       void invoke("open_project_page");
@@ -938,6 +1048,10 @@ async function boot() {
 
   window.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
+    if (!updatePopup.classList.contains("hidden")) {
+      closeUpdatePopup();
+      return;
+    }
     if (colorSlot) {
       closeColorPopup();
       return;
@@ -956,16 +1070,25 @@ async function boot() {
     if (colorSlot && !colorPopup.contains(target) && !(target instanceof Element && target.closest(".color-slot"))) {
       closeColorPopup();
     }
+    if (
+      !updatePopup.classList.contains("hidden")
+      && !updatePopup.contains(target)
+      && !(target instanceof Element && target.closest("#updateBtn"))
+    ) {
+      closeUpdatePopup();
+    }
   });
   menuEl.querySelector<HTMLElement>(".menu-scroll")?.addEventListener("scroll", () => {
     closeDropdown();
     closeColorPopup();
+    closeUpdatePopup();
   }, {
     passive: true,
   });
   window.addEventListener("resize", () => {
     closeDropdown();
     closeColorPopup();
+    closeUpdatePopup();
     updateMenuScroll();
   });
 }

@@ -725,3 +725,54 @@ body.settings-body .menu-head {
 .mcp-hint {
   margin-top: 6px;
 }
+
+.menu-refresh {
+  background: transparent;
+  color: var(--ink);
+}
+
+.menu-refresh:hover {
+  background: rgba(25, 25, 23, 0.08);
+}
+
+.menu-refresh svg {
+  display: block;
+}
+
+.menu-refresh.spinning svg {
+  animation: menuSpin 0.9s linear infinite;
+}
+
+@keyframes menuSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.update-popup {
+  position: fixed;
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 188px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.update-popup.hidden {
+  display: none;
+}
+
+.update-text {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.update-go {
+  flex: 0 0 auto;
+}
