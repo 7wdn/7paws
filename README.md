@@ -56,7 +56,7 @@
 | macOS Intel | `*-x64.dmg` | Intel Mac |
 | macOS Apple Silicon | `*-aarch64.dmg` | Apple Silicon |
 
-每个 Release 附带 `SHA256SUMS.txt`。Windows 安装器跟随系统语言，内置简体中文和英文。
+每个 Release 附带 `SHA256SUMS.txt`，正文是该版本的更新日志。Windows 安装器跟随系统语言，内置简体中文和英文。历史改动见 [CHANGELOG.md](CHANGELOG.md)。
 
 当前发布包未签名、未公证。macOS 首次打开可能需要手动放行；Windows 未签名安装包可能触发 SmartScreen。
 
