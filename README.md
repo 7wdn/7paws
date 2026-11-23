@@ -19,15 +19,15 @@
 
 从 [GitHub Releases](https://github.com/7wdn/7paws/releases) 获取最新构建：
 
-- Windows 10/11 x64：`*-setup.exe`
-- macOS 10.15+：`*.dmg`（Universal，Intel 与 Apple Silicon）
+- Windows x64 与 Windows ARM64：各一个 `*-setup.exe`
+- macOS Intel 与 macOS Apple Silicon：各一个 `*.dmg`
 
-发布包目前未做代码签名；首次打开或 WebView2 缺失时请参考下方说明。
+每个 Release 同时提供 `SHA256SUMS.txt`。发布包目前未做代码签名；首次打开或 WebView2 缺失时请参考下方说明。
 
 ## 系统要求
 
-- Windows 10/11 x64，需 Microsoft Edge WebView2 Runtime
-- macOS 10.15+（Intel / Apple Silicon）
+- Windows 10/11 x64 或 ARM64，需 Microsoft Edge WebView2 Runtime
+- macOS 10.15+（Intel 与 Apple Silicon 分别提供安装包）
 - 开发环境：Node.js 20+、pnpm、Rust stable；Windows 另需 Microsoft C++ Build Tools（含 Windows SDK），macOS 另需 Xcode Command Line Tools
 
 ## 快速开始
@@ -49,11 +49,18 @@ pnpm tauri:build
 
 Windows 生成 NSIS 安装包，位于 `src-tauri/target/release/bundle/nsis/`；macOS 生成 `.app` 与 `.dmg`，位于 `src-tauri/target/release/bundle/`。macOS 版本必须在 macOS 上构建，Tauri 不支持从 Windows 交叉编译。
 
-macOS 通用包：
+按架构构建：
 
 ```bash
-pnpm tauri build --target universal-apple-darwin
+# macOS（在 Mac 上）
+pnpm tauri build --target x86_64-apple-darwin
+pnpm tauri build --target aarch64-apple-darwin
+
+# Windows ARM64（在 Windows 上交叉编译）
+pnpm tauri build --target aarch64-pc-windows-msvc --bundles nsis
 ```
+
+Windows x64 直接使用 `pnpm tauri:build`。按架构构建的产物位于 `src-tauri/target/<target>/release/bundle/`。
 
 Rust 代码检查：
 
@@ -96,6 +103,10 @@ xattr -cr /Applications/7paws.app
 https://developer.microsoft.com/microsoft-edge/webview2/
 
 安装完成后重新打开 7paws。如果自动安装失败，可以下载 Evergreen 安装程序并右键以管理员身份运行。离线环境请先在有网络的机器下载安装程序，再拷贝到目标机器。
+
+### Windows ARM64
+
+用于 Windows ARM64。NSIS 安装器本身是 x86，由系统模拟运行；安装后的 7paws 是原生 ARM64。需要 ARM64 WebView2 Runtime，安装包会自动尝试安装。
 
 ### Windows 7/8
 
@@ -173,7 +184,7 @@ pnpm dev
 
 ## 当前范围
 
-- 支持 Windows 10/11 x64 与 macOS 10.15+。
+- 支持 Windows 10/11 x64 与 ARM64，macOS 10.15+ Intel 与 Apple Silicon。
 - 不支持 Windows 7/8；Linux 暂未支持，后续版本优先考虑 X11 会话。
 - macOS 以菜单栏图标驻留，不显示 Dock 图标；安装包需在 Mac 上构建，正式分发前还需自行签名与公证。
 - 104 布局按标准全键盘排列，包含 F 区、导航区、方向键和小键盘。
@@ -181,9 +192,9 @@ pnpm dev
 
 ## 发布
 
-1. 同步 `package.json` 与 `src-tauri/tauri.conf.json` 的版本号。
+1. 同步 `package.json`、`package-lock.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 与 `src-tauri/Cargo.lock` 的版本号。
 2. 推送 `vX.Y.Z` tag。
-3. GitHub Actions 构建 Windows NSIS 与 macOS Universal DMG，并创建 Release。
+3. GitHub Actions 构建 Windows x64/ARM64 NSIS 与 macOS Intel/Apple Silicon DMG，并创建 Release。
 
 也可以在 Actions 中手动运行 “Build bundles”，只构建安装包、不创建 Release。
 

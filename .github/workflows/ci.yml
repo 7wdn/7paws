@@ -37,11 +37,19 @@ jobs:
       - run: pnpm build
 
   rust:
-    name: cargo check (${{ matrix.os }})
+    name: cargo check (${{ matrix.target }})
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: macos-latest
+            target: x86_64-apple-darwin
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     steps:
@@ -61,9 +69,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
+          key: ${{ matrix.target }}
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - run: rustup target add ${{ matrix.target }}
 
-      - run: cargo check --locked
+      - run: cargo check --locked --target ${{ matrix.target }}
         working-directory: src-tauri
