@@ -1,5 +1,4 @@
 use crate::config::AppSettings;
-#[cfg(windows)]
 use crate::keymap;
 #[cfg(target_os = "macos")]
 use crate::keymap_macos;

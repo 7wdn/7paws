@@ -1,6 +1,7 @@
 // Physical-key mapping (US QWERTY scan codes) shared by the native hook and the
 // on-screen mini keyboard. Codes match the DOM KeyboardEvent.code vocabulary.
 
+#[cfg(windows)]
 pub fn code_for(vk: u32, scan: u32, extended: bool) -> &'static str {
     if vk == 0x13 {
         return "Pause";
@@ -188,6 +189,7 @@ pub fn code_for(vk: u32, scan: u32, extended: bool) -> &'static str {
     }
 }
 
+#[cfg(windows)]
 fn vk_fallback(vk: u32) -> &'static str {
     match vk {
         0x08 => "Backspace",

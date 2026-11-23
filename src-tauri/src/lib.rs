@@ -1,6 +1,5 @@
 mod config;
 mod input_hook;
-#[cfg(windows)]
 mod keymap;
 #[cfg(target_os = "macos")]
 mod keymap_macos;
