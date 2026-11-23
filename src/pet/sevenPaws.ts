@@ -1,6 +1,6 @@
-import type { AppSettings, CatInput, PawSide } from "../types";
+import type { AppSettings, CatInput, CustomCat, PawSide } from "../types";
 import { catAudio } from "../audio";
-import { buildCoatPalette, type CoatPalette } from "./customCoat";
+import { buildCoatPalette, type CoatPalette } from "./catPalette";
 
 type Region = [number, number, number, number];
 
@@ -35,6 +35,7 @@ export class SevenPawsPet {
   private readonly host: HTMLElement;
   private readonly onRegions: (regions: Region[]) => void;
   private settings: AppSettings;
+  private cats: CustomCat[];
   private layout: "65" | "104";
   private keys = new Set<string>();
   private buttons = new Set<string>();
@@ -50,6 +51,7 @@ export class SevenPawsPet {
   constructor(
     host: HTMLElement,
     settings: AppSettings,
+    cats: CustomCat[],
     onRegions: (regions: Region[]) => void,
   ) {
     if (!window.createCat) throw new Error("Reference cat renderer is missing");
@@ -61,6 +63,7 @@ export class SevenPawsPet {
     this.api = api;
     this.host = host;
     this.settings = settings;
+    this.cats = cats;
     this.layout = settings.keyboardLayout;
     this.onRegions = onRegions;
 
@@ -141,9 +144,10 @@ export class SevenPawsPet {
     return side > 0 ? "R" : "L";
   }
 
-  applySettings(next: AppSettings) {
+  applySettings(next: AppSettings, cats: CustomCat[]) {
     const prev = this.settings;
     this.settings = next;
+    this.cats = cats;
     this.applyOptions(next);
 
     if (next.keyboardLayout !== prev.keyboardLayout) {
@@ -212,8 +216,9 @@ export class SevenPawsPet {
       sleepMinutes: settings.sleepMinutes,
       showKeyLabels: settings.showKeyLabels,
     };
-    if (settings.coat !== "custom") options.coat = settings.coat;
+    const activeCat = this.cats.find((c) => c.id === settings.coat);
+    if (!activeCat) options.coat = settings.coat;
     this.api.setOptions(options);
-    if (settings.coat === "custom") this.api.setCustomCoat(buildCoatPalette(settings.customCoat));
+    if (activeCat) this.api.setCustomCoat(buildCoatPalette(activeCat));
   }
 }

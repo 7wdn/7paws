@@ -5,7 +5,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { SevenPawsPet } from "./pet/sevenPaws.ts";
 import { COATS } from "./pet/coats";
 import { defaultSettings } from "./defaults";
-import type { AppSettings, CatInput } from "./types";
+import type { AppSettings, CatInput, CustomCat } from "./types";
 
 const isTauri = "__TAURI_INTERNALS__" in window || "__TAURI__" in window;
 
@@ -13,6 +13,7 @@ const stage = document.getElementById("stage") as HTMLDivElement;
 const permNotice = document.getElementById("permNotice") as HTMLDivElement;
 
 let settings: AppSettings = { ...defaultSettings };
+let customCats: CustomCat[] = [];
 let scene: SevenPawsPet;
 
 function bindPointer() {
@@ -78,13 +79,18 @@ async function boot() {
     } catch {
       settings = { ...defaultSettings };
     }
+    try {
+      customCats = await invoke<CustomCat[]>("get_custom_cats");
+    } catch {
+      customCats = [];
+    }
   }
 
   const params = new URLSearchParams(location.search);
   const debugCoat = params.get("previewCoat");
   if (debugCoat && COATS.some((c) => c.id === debugCoat)) settings.coat = debugCoat;
 
-  scene = new SevenPawsPet(stage, settings, (regions) => {
+  scene = new SevenPawsPet(stage, settings, customCats, (regions) => {
     if (isTauri) void invoke("set_hit_regions", { regions });
   });
 
@@ -104,7 +110,11 @@ async function boot() {
     await listen<CatInput>("cat-input", (ev) => scene.handleInput(ev.payload));
     await listen<AppSettings>("cat-settings", (ev) => {
       settings = ev.payload;
-      scene.applySettings(settings);
+      scene.applySettings(settings, customCats);
+    });
+    await listen<CustomCat[]>("cat-cats", (ev) => {
+      customCats = ev.payload;
+      scene.applySettings(settings, customCats);
     });
     await listen<{ trusted: boolean }>("cat-input-status", (ev) => {
       permNotice.classList.toggle("hidden", ev.payload.trusted);

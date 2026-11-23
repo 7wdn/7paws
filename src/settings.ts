@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { COATS } from "./pet/coats";
 import { defaultSettings } from "./defaults";
-import type { AppSettings, CustomCoat, CustomCoatPattern } from "./types";
+import type { AppSettings, CatPattern, CatSpot, CustomCat } from "./types";
 
 const isTauri = "__TAURI_INTERNALS__" in window || "__TAURI__" in window;
 
@@ -35,11 +35,20 @@ const patternSelect = document.getElementById("patternSelect") as HTMLButtonElem
 const patternLabel = patternSelect.querySelector(".dropdown-label") as HTMLSpanElement;
 const photoBtn = document.getElementById("photoBtn") as HTMLButtonElement;
 const photoInput = document.getElementById("photoInput") as HTMLInputElement;
+const catNameInput = document.getElementById("catName") as HTMLInputElement;
+const spotsStatus = document.getElementById("spotsStatus") as HTMLSpanElement;
+const spotsClearBtn = document.getElementById("spotsClearBtn") as HTMLButtonElement;
+const coatCodeInput = document.getElementById("coatCodeInput") as HTMLInputElement;
+const coatCodeGen = document.getElementById("coatCodeGen") as HTMLButtonElement;
+const coatCodeImport = document.getElementById("coatCodeImport") as HTMLButtonElement;
+const deleteCatBtn = document.getElementById("deleteCatBtn") as HTMLButtonElement;
 const colorSlotButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".color-slot"));
 
-type ColorSlot = keyof Pick<CustomCoat, "fur" | "patch" | "accent" | "eye">;
+type ColorSlot = keyof Pick<CustomCat, "fur" | "patch" | "accent" | "eye">;
 
 let settings: AppSettings = { ...defaultSettings };
+let customCats: CustomCat[] = [];
+let coatGridKey = "";
 
 interface Choice {
   value: string;
@@ -159,12 +168,14 @@ function closeColorPopup() {
 
 function pickColor(hex: string) {
   if (!colorSlot) return;
-  const next = { ...settings.customCoat, [colorSlot]: hex };
+  const slot = colorSlot;
   closeColorPopup();
-  void saveSettings({ coat: "custom", customCoat: next });
+  saveActiveCat({ [slot]: hex } as Partial<CustomCat>);
 }
 
 function openColorPopup(button: HTMLButtonElement, slot: ColorSlot) {
+  const cat = activeCat();
+  if (!cat) return;
   closeDropdown();
   if (colorSlot === slot) {
     closeColorPopup();
@@ -172,7 +183,7 @@ function openColorPopup(button: HTMLButtonElement, slot: ColorSlot) {
   }
   closeColorPopup();
   colorSlot = slot;
-  colorHex.value = settings.customCoat[slot];
+  colorHex.value = cat[slot];
   colorPopup.classList.remove("hidden");
   const rect = button.getBoundingClientRect();
   const width = colorPopup.offsetWidth;
@@ -191,20 +202,22 @@ colorHex.addEventListener("keydown", (e) => {
 colorHex.addEventListener("change", () => {
   const raw = colorHex.value.trim();
   const hex = raw.startsWith("#") ? raw : `#${raw}`;
+  const cat = activeCat();
   if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
     pickColor(hex.toLowerCase());
-  } else if (colorSlot) {
-    colorHex.value = settings.customCoat[colorSlot];
+  } else if (colorSlot && cat) {
+    colorHex.value = cat[colorSlot];
   }
 });
 
-function refreshCustomSwatch() {
-  const swatch = coatsEl.querySelector<HTMLElement>('[data-coat="custom"] .coat-swatch');
-  if (!swatch) return;
-  const coat = settings.customCoat;
-  swatch.style.background = coat.pattern === "solid"
-    ? coat.fur
-    : `linear-gradient(135deg, ${coat.fur} 50%, ${coat.pattern === "calico" ? coat.accent : coat.patch} 50%)`;
+function activeCat(): CustomCat | null {
+  return customCats.find((c) => c.id === settings.coat) ?? null;
+}
+
+function coatSwatch(cat: CustomCat): string {
+  if (cat.pattern === "solid") return cat.fur;
+  const second = cat.pattern === "calico" ? cat.accent : cat.patch;
+  return `linear-gradient(135deg, ${cat.fur} 50%, ${second} 50%)`;
 }
 
 function hexOf(rgb: number[]): string {
@@ -217,7 +230,7 @@ function hexOf(rgb: number[]): string {
 // and pick the largest colour plus the two most distinct ones. No photo leaves the device.
 async function extractColorsFromPhoto(
   file: File,
-): Promise<{ fur: string; patch: string; accent: string; pattern: CustomCoatPattern }> {
+): Promise<{ fur: string; patch: string; accent: string; pattern: CatPattern }> {
   // createImageBitmap is missing from older WKWebView, so decode through an <img>.
   const url = URL.createObjectURL(file);
   let image: HTMLImageElement;
@@ -279,7 +292,7 @@ async function extractColorsFromPhoto(
   const fur = ranked[0].c;
   const patch = ranked.slice(1).find((r) => distance(r.c, fur) > 60)?.c;
   const accent = ranked.slice(1).find((r) => distance(r.c, fur) > 60 && (!patch || distance(r.c, patch) > 60))?.c;
-  const pattern: CustomCoatPattern = accent ? "calico" : patch ? "bicolor" : "solid";
+  const pattern: CatPattern = accent ? "calico" : patch ? "bicolor" : "solid";
   return {
     fur: hexOf(fur),
     patch: hexOf(patch ?? fur),
@@ -315,13 +328,49 @@ function buildCoatButtons() {
       : coat.pattern === "tabby"
         ? `linear-gradient(180deg, ${coat.fur} 62%, ${coat.stripe ?? coat.fur} 62%)`
         : coat.fur;
-    btn.innerHTML = `<span class="coat-swatch" style="background:${swatch}"></span><span>${coat.name}</span>`;
+    const sw = document.createElement("span");
+    sw.className = "coat-swatch";
+    sw.style.background = swatch;
+    const label = document.createElement("span");
+    label.textContent = coat.name;
+    btn.append(sw, label);
     btn.addEventListener("click", () => {
       if (settings.coat === coat.id) return;
       void saveSettings({ coat: coat.id });
     });
     coatsEl.appendChild(btn);
   }
+  for (const cat of customCats) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "coat-btn";
+    btn.dataset.coat = cat.id;
+    const sw = document.createElement("span");
+    sw.className = "coat-swatch";
+    sw.style.background = coatSwatch(cat);
+    const label = document.createElement("span");
+    label.textContent = cat.name;
+    btn.append(sw, label);
+    btn.addEventListener("click", () => {
+      if (settings.coat === cat.id) return;
+      void saveSettings({ coat: cat.id });
+    });
+    coatsEl.appendChild(btn);
+  }
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "coat-btn coat-add";
+  add.textContent = "＋ 新建";
+  add.addEventListener("click", () => void createCat());
+  coatsEl.appendChild(add);
+  menuButtonSelected(settings.coat);
+}
+
+function syncCoatGrid() {
+  const key = JSON.stringify(customCats.map((c) => [c.id, c.name, c.fur, c.patch, c.accent, c.pattern]));
+  if (key === coatGridKey) return;
+  coatGridKey = key;
+  buildCoatButtons();
 }
 
 function syncControls() {
@@ -341,14 +390,20 @@ function syncControls() {
   purrPetInput.checked = settings.purrPet;
   purrSleepInput.checked = settings.purrSleep;
   labelsInput.checked = settings.showKeyLabels;
+  syncCoatGrid();
   menuButtonSelected(settings.coat);
-  for (const btn of colorSlotButtons) {
-    const dot = btn.querySelector<HTMLElement>(".color-dot");
-    if (dot) dot.style.background = settings.customCoat[btn.dataset.slot as ColorSlot];
+  const cat = activeCat();
+  if (cat) {
+    if (document.activeElement !== catNameInput) catNameInput.value = cat.name;
+    for (const btn of colorSlotButtons) {
+      const dot = btn.querySelector<HTMLElement>(".color-dot");
+      if (dot) dot.style.background = cat[btn.dataset.slot as ColorSlot];
+    }
+    patternLabel.textContent = patternChoices.find((c) => c.value === cat.pattern)?.label ?? "双色";
+    spotsStatus.textContent = cat.spots.length ? `斑纹 ${cat.spots.length} 处` : "暂无斑纹";
+    spotsClearBtn.hidden = cat.spots.length === 0;
   }
-  patternLabel.textContent = patternChoices.find((c) => c.value === settings.customCoat.pattern)?.label ?? "双色";
-  customCoatEl.hidden = settings.coat !== "custom";
-  refreshCustomSwatch();
+  customCoatEl.hidden = !cat;
   requestAnimationFrame(updateMenuScroll);
 }
 
@@ -372,12 +427,133 @@ async function saveSettings(patch: Partial<AppSettings>) {
   }
 }
 
+async function saveActiveCat(patch: Partial<CustomCat>) {
+  const cat = activeCat();
+  if (!cat) return;
+  const next: CustomCat = { ...cat, ...patch };
+  const index = customCats.findIndex((c) => c.id === cat.id);
+  if (index >= 0) customCats[index] = next;
+  syncControls();
+  if (!isTauri) return;
+  try {
+    const saved = await invoke<CustomCat>("save_custom_cat", { cat: next, activate: true });
+    const i = customCats.findIndex((c) => c.id === saved.id);
+    if (i >= 0) customCats[i] = saved;
+    else customCats.push(saved);
+    if (settings.coat !== saved.id) settings = { ...settings, coat: saved.id };
+    syncControls();
+  } catch {
+    // Keep the local state; the next save retries.
+  }
+}
+
+async function createCat() {
+  const cat: CustomCat = {
+    id: isTauri ? "" : `my-cat-${Date.now().toString(36)}`,
+    name: "我的猫",
+    fur: "#e9973f",
+    patch: "#fbe8c9",
+    accent: "#c26a1f",
+    eye: "#5c8a3a",
+    pattern: "bicolor",
+    spots: [],
+  };
+  if (!isTauri) {
+    customCats.push(cat);
+    settings = { ...settings, coat: cat.id };
+    syncControls();
+    return;
+  }
+  try {
+    const saved = await invoke<CustomCat>("save_custom_cat", { cat, activate: true });
+    if (!customCats.some((c) => c.id === saved.id)) customCats.push(saved);
+    settings = { ...settings, coat: saved.id };
+    syncControls();
+  } catch {
+    // Ignore; the user can retry.
+  }
+}
+
+async function removeActiveCat() {
+  const cat = activeCat();
+  if (!cat) return;
+  if (!window.confirm(`删除「${cat.name}」？`)) return;
+  customCats = customCats.filter((c) => c.id !== cat.id);
+  if (settings.coat === cat.id) settings = { ...settings, coat: "tuxedo" };
+  syncControls();
+  if (!isTauri) return;
+  try {
+    await invoke("delete_custom_cat", { id: cat.id });
+  } catch {
+    // The list listener will reconcile.
+  }
+}
+
+function catFromCode(raw: string): CustomCat | null {
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== "object") return null;
+    const str = (value: unknown, fallback: string) =>
+      typeof value === "string" && value.trim() ? value : fallback;
+    const patternRaw = str(parsed.pattern, "bicolor");
+    const pattern: CatPattern = (["solid", "bicolor", "tabby", "calico"] as const).includes(
+      patternRaw as CatPattern,
+    )
+      ? (patternRaw as CatPattern)
+      : "bicolor";
+    return {
+      id: "",
+      name: str(parsed.name, "导入的猫").slice(0, 16),
+      fur: str(parsed.fur, "#151515"),
+      patch: str(parsed.patch, "#f8f6ef"),
+      accent: str(parsed.accent, "#e9973f"),
+      eye: str(parsed.eye, "#e2b93b"),
+      pattern,
+      spots: Array.isArray(parsed.spots) ? (parsed.spots.slice(0, 24) as CatSpot[]) : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function importCoatCode() {
+  const cat = catFromCode(coatCodeInput.value);
+  if (!cat) {
+    coatCodeImport.textContent = "格式不对";
+    window.setTimeout(() => {
+      coatCodeImport.textContent = "导入毛色码";
+    }, 1800);
+    return;
+  }
+  coatCodeInput.value = "";
+  if (!isTauri) {
+    cat.id = `my-cat-${Date.now().toString(36)}`;
+    customCats.push(cat);
+    settings = { ...settings, coat: cat.id };
+    syncControls();
+    return;
+  }
+  try {
+    const saved = await invoke<CustomCat>("save_custom_cat", { cat, activate: true });
+    if (!customCats.some((c) => c.id === saved.id)) customCats.push(saved);
+    settings = { ...settings, coat: saved.id };
+    syncControls();
+  } catch {
+    // Ignore; the user can retry.
+  }
+}
+
 async function refresh() {
   if (isTauri) {
     try {
       settings = await invoke<AppSettings>("get_settings");
     } catch {
       // Keep the last known state.
+    }
+    try {
+      customCats = await invoke<CustomCat[]>("get_custom_cats");
+    } catch {
+      // Keep the last known list.
     }
   }
   syncControls();
@@ -446,16 +622,40 @@ function bindControls() {
   });
 
   patternSelect.addEventListener("click", () => {
+    const cat = activeCat();
+    if (!cat) return;
     openDropdown(
       patternSelect,
       patternChoices,
-      () => settings.customCoat.pattern,
-      (value) => void saveSettings({
-        coat: "custom",
-        customCoat: { ...settings.customCoat, pattern: value as CustomCoatPattern },
-      }),
+      () => cat.pattern,
+      (value) => saveActiveCat({ pattern: value as CatPattern }),
     );
   });
+
+  catNameInput.addEventListener("change", () => {
+    const name = catNameInput.value.trim();
+    if (!name) {
+      const cat = activeCat();
+      if (cat) catNameInput.value = cat.name;
+      return;
+    }
+    saveActiveCat({ name });
+  });
+
+  spotsClearBtn.addEventListener("click", () => {
+    saveActiveCat({ spots: [] });
+  });
+
+  deleteCatBtn.addEventListener("click", () => void removeActiveCat());
+
+  coatCodeGen.addEventListener("click", () => {
+    const cat = activeCat();
+    if (!cat) return;
+    coatCodeInput.value = JSON.stringify(cat);
+    coatCodeInput.select();
+  });
+
+  coatCodeImport.addEventListener("click", () => void importCoatCode());
 
   for (const btn of colorSlotButtons) {
     btn.addEventListener("click", () => openColorPopup(btn, btn.dataset.slot as ColorSlot));
@@ -470,7 +670,7 @@ function bindControls() {
     photoBtn.textContent = "正在取色…";
     try {
       const colors = await extractColorsFromPhoto(file);
-      await saveSettings({ coat: "custom", customCoat: { ...settings.customCoat, ...colors } });
+      await saveActiveCat(colors);
       photoBtn.textContent = "已取色，可继续微调";
     } catch {
       photoBtn.textContent = "这张照片读不出来，换一张试试";
@@ -512,6 +712,10 @@ async function boot() {
   if (isTauri) {
     await listen<AppSettings>("cat-settings", (ev) => {
       settings = ev.payload;
+      syncControls();
+    });
+    await listen<CustomCat[]>("cat-cats", (ev) => {
+      customCats = ev.payload;
       syncControls();
     });
   }

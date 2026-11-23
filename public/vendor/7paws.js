@@ -243,6 +243,13 @@ function paintCoat(c) {
     blob(b, 0.04, 0.42, 0.15, 0.2, c.patchA); blob(b, 0.56, 0.22, 0.13, 0.13, c.patchB); blob(b, 0.78, 0.5, 0.16, 0.22, c.patchB); blob(b, 0.5, 0.56, 0.1, 0.12, c.patchA);
     blob(h, 0.11, 0.7, 0.13, 0.24, c.patchA, 0.3); blob(h, 0.42, 0.72, 0.11, 0.22, c.patchB, -0.3); blob(h, 0.75, 0.5, 0.2, 0.3, c.patchB);
   }
+  // [7paws] AI/photo-authored markings: ellipses in part uv space (u wraps around the body).
+  if (c.spots && c.spots.length) for (const sp of c.spots) {
+    const g2 = sp.part === 'head' ? h : b, rot = (sp.rotation || 0) * Math.PI / 180;
+    g2.save(); g2.globalAlpha = clamp(sp.opacity == null ? 1 : sp.opacity, 0, 1); g2.fillStyle = sp.color;
+    for (const du of [-1, 0, 1]) { g2.beginPath(); g2.ellipse((clamp(sp.x || 0, 0, 1) + du) * TEX, (1 - clamp(sp.y || 0, 0, 1)) * TEX, clamp(sp.rx || 0.02, 0.005, 0.6) * TEX, clamp(sp.ry || 0.02, 0.005, 0.6) * TEX, rot, 0, 7); g2.fill(); }
+    g2.restore();
+  }
     bodyTex.t.needsUpdate = headTex.t.needsUpdate = true; M.tail.color.set(c.tail || c.fur);
 }
 add(head, ball(1, M.head, HEAD_R[0], HEAD_R[1], HEAD_R[2]), 0, 0, 0);

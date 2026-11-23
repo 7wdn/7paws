@@ -23,6 +23,7 @@
             <span>我的猫</span>
             <span class="menu-hint">照片只在本机取色</span>
           </div>
+          <input id="catName" class="cat-name" type="text" maxlength="16" placeholder="名字" />
           <div class="color-row">
             <button class="color-slot" type="button" data-slot="fur"><span class="color-dot"></span><span>主色</span></button>
             <button class="color-slot" type="button" data-slot="patch"><span class="color-dot"></span><span>花色</span></button>
@@ -36,7 +37,17 @@
               <span class="dropdown-caret">▾</span>
             </button>
           </div>
+          <div class="custom-row spots-row">
+            <span id="spotsStatus" class="menu-hint">暂无斑纹</span>
+            <button id="spotsClearBtn" class="btn ghost" type="button" hidden>清除斑纹</button>
+          </div>
           <button id="photoBtn" class="btn photo-btn" type="button">从照片取色</button>
+          <input id="coatCodeInput" class="cat-name" type="text" placeholder="毛色码（粘贴后点导入）" spellcheck="false" />
+          <div class="custom-actions">
+            <button id="coatCodeGen" class="btn ghost" type="button">生成毛色码</button>
+            <button id="coatCodeImport" class="btn ghost" type="button">导入毛色码</button>
+          </div>
+          <button id="deleteCatBtn" class="btn danger photo-btn" type="button">删除这只猫</button>
           <input id="photoInput" type="file" accept="image/*" hidden />
         </div>
 

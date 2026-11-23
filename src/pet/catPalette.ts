@@ -1,7 +1,7 @@
-import type { CustomCoat, CustomCoatPattern } from "../types";
+import type { CatSpot, CustomCat } from "../types";
 
 export interface CoatPalette {
-  pattern: CustomCoatPattern;
+  pattern: CustomCat["pattern"];
   fur: string;
   patch: string;
   line: string;
@@ -13,6 +13,7 @@ export interface CoatPalette {
   patchA?: string;
   patchB?: string;
   tail?: string;
+  spots: CatSpot[];
 }
 
 export function mixHex(a: string, b: string, t: number): string {
@@ -33,7 +34,7 @@ export function luminance(hex: string): number {
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 }
 
-export function buildCoatPalette(c: CustomCoat): CoatPalette {
+export function buildCoatPalette(c: CustomCat): CoatPalette {
   const fur = c.fur;
   const lum = luminance(fur);
   const pale = lum > 0.78;
@@ -55,6 +56,7 @@ export function buildCoatPalette(c: CustomCoat): CoatPalette {
     whiskerOut: line,
     stripe,
     inner,
+    spots: c.spots ?? [],
   };
   switch (c.pattern) {
     case "solid":
