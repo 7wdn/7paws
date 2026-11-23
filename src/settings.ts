@@ -252,13 +252,21 @@ function showUpdatePopup(message: string, hasUpdate: boolean) {
   closeUpdatePopup();
   updateText.textContent = message;
   updateGoBtn.hidden = !hasUpdate;
+  const menuRect = menuEl.getBoundingClientRect();
+  const margin = 8;
+  updatePopup.style.width = `${Math.min(188, Math.max(140, menuRect.width - margin * 2))}px`;
   updatePopup.classList.remove("hidden");
-  const rect = updateBtn.getBoundingClientRect();
   const width = updatePopup.offsetWidth;
-  const left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8));
-  updatePopup.style.left = `${left}px`;
-  updatePopup.style.top = `${rect.bottom + 6}px`;
-  updateTimer = window.setTimeout(closeUpdatePopup, 4000);
+  const left = Math.min(
+    Math.max(menuRect.left + (menuRect.width - width) / 2, menuRect.left + margin),
+    menuRect.right - width - margin,
+  );
+  updatePopup.style.left = `${Math.round(left)}px`;
+  updatePopup.style.top = `${Math.round(updateBtn.getBoundingClientRect().bottom + 6)}px`;
+  // The update notice waits for the user; status messages fade out on their own.
+  if (!hasUpdate) {
+    updateTimer = window.setTimeout(closeUpdatePopup, 4000);
+  }
 }
 
 function parseVersion(value: string): number[] {
@@ -306,6 +314,16 @@ async function fetchLatestVersion(signal: AbortSignal): Promise<string | null> {
   return tag || null;
 }
 
+function updateErrorMessage(error: unknown): string {
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return "检查超时，请检查网络后重试";
+  }
+  if (error instanceof TypeError) {
+    return "网络连接失败，请检查网络或代理后重试";
+  }
+  return "检查失败，请稍后再试";
+}
+
 async function checkForUpdates() {
   if (updateBusy) return;
   updateBusy = true;
@@ -314,16 +332,20 @@ async function checkForUpdates() {
   const timer = window.setTimeout(() => controller.abort(), 8000);
   try {
     const latest = await fetchLatestVersion(controller.signal);
+    if (!latest) {
+      showUpdatePopup("检查失败，版本服务暂时不可用", false);
+      return;
+    }
     const current = isTauri
       ? await invoke<string>("get_app_version").catch(() => "0.0.0")
       : "0.0.0";
-    if (latest && isNewerVersion(latest, current)) {
+    if (isNewerVersion(latest, current)) {
       showUpdatePopup(`发现新版本 ${latest}`, true);
     } else {
       showUpdatePopup(`已是最新版本（${current}）`, false);
     }
-  } catch {
-    showUpdatePopup("检查失败，请稍后再试", false);
+  } catch (error) {
+    showUpdatePopup(updateErrorMessage(error), false);
   } finally {
     window.clearTimeout(timer);
     updateBtn.classList.remove("spinning");
