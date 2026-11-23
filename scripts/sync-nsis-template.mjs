@@ -162,7 +162,10 @@ const content = await generate();
 
 if (process.argv.includes("--check")) {
   const current = await readFile(OUTPUT, "utf8").catch(() => null);
-  if (current === content) {
+  // Git may check the file out with CRLF (core.autocrlf on Windows); the
+  // template itself is LF, so compare with line endings normalised.
+  const same = current !== null && current.replace(/\r\n/g, "\n") === content;
+  if (same) {
     console.log("NSIS template is up to date");
   } else {
     console.error("NSIS template is out of date; run: node scripts/sync-nsis-template.mjs");
