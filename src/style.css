@@ -689,6 +689,13 @@ body.settings-body .menu-head {
 .mcp-row .dropdown {
   flex: 1 1 auto;
   min-width: 0;
+  max-width: none;
+}
+
+.mcp-row .dropdown-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mcp-copy {
