@@ -1,5 +1,7 @@
 # 7paws
 
+[![CI](https://github.com/7wdn/7paws/actions/workflows/ci.yml/badge.svg)](https://github.com/7wdn/7paws/actions/workflows/ci.yml)
+
 7paws（七爪）是 Windows 与 macOS 的桌面小猫桌宠。小猫会响应全局键盘和鼠标输入：敲键、看光标、伸爪够鼠标；按住猫头可以摸它，闲置后它会睡觉。
 
 ## 功能
@@ -12,6 +14,15 @@
 - 隐私模式：只保留左右侧动作提示，不显示具体按键。
 - 点击穿透与始终置顶：不影响正常操作，托盘可显示/隐藏。
 - 设置持久化：毛色、大小、布局、睡眠时间和各项开关会保存到本地。
+
+## 下载
+
+从 [GitHub Releases](https://github.com/7wdn/7paws/releases) 获取最新构建：
+
+- Windows 10/11 x64：`*-setup.exe`
+- macOS 10.15+：`*.dmg`（Universal，Intel 与 Apple Silicon）
+
+发布包目前未做代码签名；首次打开或 WebView2 缺失时请参考下方说明。
 
 ## 系统要求
 
@@ -38,6 +49,12 @@ pnpm tauri:build
 
 Windows 生成 NSIS 安装包，位于 `src-tauri/target/release/bundle/nsis/`；macOS 生成 `.app` 与 `.dmg`，位于 `src-tauri/target/release/bundle/`。macOS 版本必须在 macOS 上构建，Tauri 不支持从 Windows 交叉编译。
 
+macOS 通用包：
+
+```bash
+pnpm tauri build --target universal-apple-darwin
+```
+
 Rust 代码检查：
 
 ```bash
@@ -45,13 +62,48 @@ cd src-tauri
 cargo check
 ```
 
-## macOS 权限
+## macOS
 
-首次运行时 7paws 会请求「辅助功能」权限。如果没有弹出提示，或小猫不响应全局键鼠，请打开「系统设置 → 隐私与安全性 → 辅助功能」，勾选 7paws，然后重新打开应用。
+### 首次打开
 
+当前发布包未签名、未公证。把 `7paws.app` 拖入「应用程序」后，如果提示「无法验证开发者」或「已损坏」，在「终端」执行：
+
+```bash
+xattr -cr /Applications/7paws.app
+```
+
+然后重新打开应用。上述命令只清除本次下载的隔离属性，不会修改应用内容。
+
+### 权限
+
+打开「系统设置 → 隐私与安全性」，在「辅助功能」和「输入监控」中勾选 7paws，然后重新启动应用。
+
+- 全局键鼠响应需要这两项权限同时开启；只勾选其中一项时，小猫不会完整响应。
 - 授权对象是当前构建出的 7paws（开发模式下可能是终端或未签名的 `.app`）。
-- 未签名的构建首次打开时，需要在 Finder 中右键选择「打开」。
+- 如果同时使用 Karabiner-Elements 等键盘工具，请确认 7paws 的两项授权没有被关闭。
 - 全局键鼠监听只用于驱动小猫动作，不记录、不保存、不上传按键内容。
+
+正式分发前建议配置 Apple Developer ID 签名与公证，届时可以省略 `xattr` 步骤。
+
+## Windows
+
+安装包内置 WebView2 引导程序；安装时如果系统缺少运行时，会自动尝试安装。
+
+### 提示 “Could not find the WebView2 Runtime”
+
+常见于 Windows 10 LTSC、精简版或移除了 Edge 的系统。请安装微软官方的 Evergreen Runtime：
+
+https://developer.microsoft.com/microsoft-edge/webview2/
+
+安装完成后重新打开 7paws。如果自动安装失败，可以下载 Evergreen 安装程序并右键以管理员身份运行。离线环境请先在有网络的机器下载安装程序，再拷贝到目标机器。
+
+### Windows 7/8
+
+不支持。7paws 使用 Tauri 2 与当前 Rust 工具链构建；Windows 7 需要单独的旧工具链和 WebView2 109 离线包，不在当前发布范围内。
+
+### SmartScreen
+
+未签名的安装包可能显示「未知发布者」。确认文件来自本仓库的 Releases 后，可以选择「更多信息 → 仍要运行」。
 
 ## 使用
 
@@ -86,6 +138,7 @@ macOS 的开机自启通过 `~/Library/LaunchAgents/com.qoder.7paws.plist` 注�
 
 ```text
 .
+├─ .github/workflows/    CI、安装包构建与 tag 发布
 ├─ index.html            窗口与设置菜单
 ├─ src/
 │  ├─ main.ts            启动、设置、菜单和指针交互
@@ -121,6 +174,15 @@ pnpm dev
 ## 当前范围
 
 - 支持 Windows 10/11 x64 与 macOS 10.15+。
+- 不支持 Windows 7/8；Linux 暂未支持，后续版本优先考虑 X11 会话。
 - macOS 以菜单栏图标驻留，不显示 Dock 图标；安装包需在 Mac 上构建，正式分发前还需自行签名与公证。
 - 104 布局按标准全键盘排列，包含 F 区、导航区、方向键和小键盘。
 - 产品名与窗口、托盘、安装包统一使用 7paws。
+
+## 发布
+
+1. 同步 `package.json` 与 `src-tauri/tauri.conf.json` 的版本号。
+2. 推送 `vX.Y.Z` tag。
+3. GitHub Actions 构建 Windows NSIS 与 macOS Universal DMG，并创建 Release。
+
+也可以在 Actions 中手动运行 “Build bundles”，只构建安装包、不创建 Release。

@@ -327,11 +327,17 @@ mod accessibility {
         fn AXIsProcessTrustedWithOptions(options: *const std::ffi::c_void) -> u8;
     }
 
-    // CGEventTap only receives keyboard events while 7paws is trusted for
-    // Accessibility. The prompt adds the app to the pane; the user still has
-    // to toggle it, and macOS may require a relaunch before the tap opens.
+    #[link(name = "CoreGraphics", kind = "framework")]
+    unsafe extern "C" {
+        fn CGPreflightListenEventAccess() -> u8;
+        fn CGRequestListenEventAccess() -> u8;
+    }
+
+    // Keyboard event taps need Accessibility plus Input Monitoring on modern
+    // macOS. The prompts add the app to both panes; the user still has to
+    // toggle them, and macOS may require a relaunch before the tap opens.
     pub fn is_trusted() -> bool {
-        unsafe { AXIsProcessTrusted() != 0 }
+        unsafe { AXIsProcessTrusted() != 0 && CGPreflightListenEventAccess() != 0 }
     }
 
     pub fn prompt() {
@@ -346,6 +352,7 @@ mod accessibility {
             CFDictionary::from_CFType_pairs(&[(key, value)]);
         unsafe {
             AXIsProcessTrustedWithOptions(options.as_concrete_TypeRef() as *const std::ffi::c_void);
+            CGRequestListenEventAccess();
         }
     }
 }
