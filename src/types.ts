@@ -13,6 +13,7 @@ export interface AppSettings {
   sleepMinutes: number;
   showKeyLabels: boolean;
   keyboardLayout: "65" | "104";
+  showTrayIcon: boolean;
 }
 
 export type CatInput =
