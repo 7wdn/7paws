@@ -19,6 +19,7 @@ const layoutLabel = layoutSelect.querySelector(".dropdown-label") as HTMLSpanEle
 const leftMouseInput = document.getElementById("leftMouse") as HTMLInputElement;
 const clickThroughLockedInput = document.getElementById("clickThroughLocked") as HTMLInputElement;
 const showTrayIconInput = document.getElementById("showTrayIcon") as HTMLInputElement;
+const autostartInput = document.getElementById("autostart") as HTMLInputElement;
 const privacyInput = document.getElementById("privacyMode") as HTMLInputElement;
 const purrPetInput = document.getElementById("purrPet") as HTMLInputElement;
 const purrSleepInput = document.getElementById("purrSleep") as HTMLInputElement;
@@ -155,6 +156,7 @@ function syncControls() {
   leftMouseInput.checked = settings.leftMouse;
   clickThroughLockedInput.checked = settings.clickThroughLocked;
   showTrayIconInput.checked = settings.showTrayIcon;
+  autostartInput.checked = settings.autostart;
   privacyInput.checked = settings.privacyMode;
   purrPetInput.checked = settings.purrPet;
   purrSleepInput.checked = settings.purrSleep;
@@ -230,6 +232,9 @@ function bindControls() {
   });
   showTrayIconInput.addEventListener("change", () => {
     void saveSettings({ showTrayIcon: showTrayIconInput.checked });
+  });
+  autostartInput.addEventListener("change", () => {
+    void saveSettings({ autostart: autostartInput.checked });
   });
   privacyInput.addEventListener("change", () => {
     void saveSettings({ privacyMode: privacyInput.checked });
