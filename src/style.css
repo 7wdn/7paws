@@ -776,3 +776,12 @@ body.settings-body .menu-head {
 .update-go {
   flex: 0 0 auto;
 }
+
+.menu-meta {
+  flex: 0 0 auto;
+  padding-top: 6px;
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
