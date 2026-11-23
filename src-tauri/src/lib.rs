@@ -401,7 +401,7 @@ pub(crate) fn close_settings_if_clicked_outside(app: &AppHandle) {
         if pet.is_visible().unwrap_or(false) {
             if let (Ok(ppos), Ok(psize)) = (pet.outer_position(), pet.outer_size()) {
                 if point_in_rect(ppos, psize, cx, cy) {
-                    let _ = settings.hide();
+                    let _ = settings.destroy();
                     return;
                 }
             }
@@ -416,7 +416,7 @@ pub(crate) fn close_settings_if_clicked_outside(app: &AppHandle) {
             if settings.is_visible().unwrap_or(false)
                 && !settings.is_focused().unwrap_or(true)
             {
-                let _ = settings.hide();
+                let _ = settings.destroy();
             }
         }
     });
@@ -470,6 +470,15 @@ fn show_settings_window_blocking(app: &AppHandle) {
 #[tauri::command]
 fn open_settings(app: AppHandle) {
     show_settings_window(&app);
+}
+
+#[tauri::command]
+async fn close_settings(app: AppHandle) {
+    // Destroy rather than hide so the settings WebView process exits;
+    // show_settings_window recreates the window on demand.
+    if let Some(win) = app.get_webview_window("settings") {
+        let _ = win.destroy();
+    }
 }
 
 #[tauri::command]
@@ -582,6 +591,7 @@ pub fn run() {
             get_settings,
             update_settings,
             open_settings,
+            close_settings,
             set_dragging,
             set_hit_regions,
             reset_position,

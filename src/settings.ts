@@ -113,7 +113,7 @@ function openDropdown(
 function hide() {
   closeDropdown();
   if (isTauri) {
-    void getCurrentWindow().hide();
+    void invoke("close_settings");
   } else {
     window.close();
   }
@@ -250,9 +250,10 @@ function bindControls() {
   });
 
   resetBtn.addEventListener("click", async () => {
+    if (isTauri) {
+      await invoke("reset_position");
+    }
     hide();
-    if (!isTauri) return;
-    await invoke("reset_position");
   });
 
   quitBtn.addEventListener("click", async () => {
