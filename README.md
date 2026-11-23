@@ -19,6 +19,7 @@
 - [macOS 首次打开](#macos-首次打开)
 - [Windows 安装](#windows-安装)
 - [使用](#使用)
+- [AI 助手接入（MCP）](#ai-助手接入mcp)
 - [默认设置](#默认设置)
 - [技术栈](#技术栈)
 - [从源码构建](#从源码构建)
@@ -108,12 +109,19 @@ tccutil reset All com.qoder.7paws
 - 设置菜单可切换毛色（含「我的猫」：新建、照片取色、毛色码导入导出，命名多只随意切换）、键盘布局、睡眠时间、鼠标左右手、锁定鼠标穿透、托盘图标、开机自启、隐私模式、呼噜开关和按键字母。
 - 锁定鼠标穿透后整窗不接收鼠标操作，按住 `Alt` 可临时拖动或右键打开菜单。
 - 大小滑杆拖动时只预览百分比，松手后应用。
+- 设置窗口右上角可以检查更新、打开 GitHub 仓库，底部显示当前版本。
 
 ## AI 助手接入（MCP）
 
-7paws 内置一个不依赖 Node/Python 的 stdio MCP 服务：把自家猫的照片发给 AI 客户端，AI 读取照片后生成配色和斑纹，运行中的小猫约 1 秒内热更新。
+7paws 内置一个不依赖 Node/Python 的 stdio MCP 服务。照片由你发给 AI 客户端，AI 读取后生成配色、花纹和斑纹，运行中的小猫约 1 秒内热更新，无需重启。
 
-设置窗口「AI 接入（MCP）」里选择你用的客户端（Qoder 优先，共 15 个：Claude Code、Cursor、CodeBuddy、ZCode、TRAE、VS Code、Windsurf、Codex、DeepSeek Harness、OpenCode、Pi、Cherry Studio、WorkBuddy、Antigravity），点「复制」即可拿到对应格式（`mcpServers` / VS Code 的 `servers` / Codex 的 TOML / DeepSeek Harness 的 YAML / OpenCode 的 `mcp` 数组）和写入位置。通用的 stdio 配置形如：
+### 配置
+
+1. 右键小猫打开设置，找到「AI 接入（MCP）」，确认开关已打开。
+2. 在客户端下拉里选择你用的 AI 工具（Qoder 优先，共 15 个：Claude Code、Cursor、CodeBuddy、ZCode、TRAE、VS Code、Windsurf、Codex、DeepSeek Harness、OpenCode、Pi、Cherry Studio、WorkBuddy、Antigravity）。
+3. 点「复制」，把生成的配置粘贴到下拉下方提示的文件（如 `~/.qoder/mcp.json`）或客户端设置页，然后重载 MCP 配置或重启客户端。
+
+通用的 stdio 配置形如（`command` 指向 7paws 程序路径，也可以用 `~/.7paws-mcp/7paws.exe` 这类固定副本，避免开发时占用安装/构建目录）：
 
 ```json
 {
@@ -126,11 +134,35 @@ tccutil reset All com.qoder.7paws
 }
 ```
 
-- 工具：`list_cats`、`get_cat_schema`（配色语义、四种花纹、斑纹坐标与模板）、`upsert_cat`（创建/覆盖一只猫并切换）、`switch_cat`、`delete_cat`。
-- 设置窗口的「AI 接入（MCP）」一栏可以关闭/开启 MCP，并直接复制含当前程序路径的客户端配置。
-- 自定义猫保存在配置文件同目录的 `cats.json`；应用运行时轮询文件变化并热更新，「我的猫」支持 head/body 斑纹（最多 24 处椭圆斑）。
+### 工具
+
+| 工具 | 作用 |
+| --- | --- |
+| `get_cat_schema` | 配色语义、四种花纹、斑纹坐标与模板；AI 通常会先读它 |
+| `list_cats` | 列出内置与自定义猫，标出当前激活的猫 |
+| `upsert_cat` | 创建或覆盖一只猫（毛色、花纹、斑纹），可立即切换 |
+| `switch_cat` | 按 id 切换当前小猫 |
+| `delete_cat` | 删除一只自定义猫 |
+
+### 对 AI 这么说
+
+把照片直接拖进对话，或者只用文字描述，例如：
+
+- 「用 7paws MCP 按这张照片给我捏一只猫：先读 schema，再按照片选毛色、花纹和斑纹，用新的 id，做完切过去。」
+- 「它额头有一道深色竖纹、胸口是白的、背上有一大块橘色，把这三处写进 spots。」
+- 「刚才那只猫的白胸口往上挪一点、再放大一圈。」
+- 「把当前这只改成三花：奶白底，橘色和黑色斑块，眼睛换成琥珀色。」
+- 「列出我所有的猫，然后切回奶牛猫。」
+- 「这只不像，删掉它。」
+
+斑纹由 AI 按 schema 里的 uv 坐标摆放，第一版位置可能有偏差；直接告诉它往哪边挪、放大还是缩小，它会改坐标重新应用，每次约 1 秒上屏。
+
+### 说明
+
+- 斑纹（spots）目前只支持头部和身体（每只最多 24 处），四肢和尾巴暂不支持；坐标 0.25 为正面中心、0.75 为背面，schema 内附额头纹、眼罩、白胸口、背部色块模板。
+- 关闭「允许 AI 接入（MCP）」后，工具调用会返回明确提示；重新打开即可恢复，无需重启客户端。
+- 自定义猫保存在配置文件同目录的 `cats.json`，应用运行时轮询文件变化并热更新；设置窗口里也能给「我的猫」生成毛色码，复制分享或粘贴导入。
 - 照片只发给 AI 客户端；除用户主动点击「检查更新」时读取 GitHub 版本号外，7paws 本身没有任何网络请求。
-- 设置窗口里可以给当前「我的猫」生成毛色码，复制分享或粘贴导入。
 - 升级安装时，安装器会通过 Windows Restart Manager 检测占用（包括 AI 客户端拉起的 `--mcp` 进程）并提示关闭后继续；完成后重启 AI 客户端即可恢复 MCP。若 AI 客户端以管理员身份运行，需要先手动退出它再升级。
 
 ## 默认设置
