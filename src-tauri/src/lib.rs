@@ -584,6 +584,22 @@ fn open_project_page() {
 }
 
 #[tauri::command]
+fn open_release_page() {
+    #[cfg(windows)]
+    {
+        let _ = std::process::Command::new("cmd")
+            .args(["/C", "start", "", "https://github.com/7wdn/7paws/releases/latest"])
+            .spawn();
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("open")
+            .arg("https://github.com/7wdn/7paws/releases/latest")
+            .spawn();
+    }
+}
+
+#[tauri::command]
 fn set_hit_regions(state: State<'_, AppState>, regions: Vec<[f64; 4]>) {
     let mut sanitized: Vec<[f64; 4]> = Vec::new();
     for rect in regions.into_iter().take(8) {
@@ -831,6 +847,7 @@ pub fn run() {
             delete_custom_cat,
             get_mcp_command,
             open_project_page,
+            open_release_page,
             set_dragging,
             set_hit_regions,
             reset_position,
