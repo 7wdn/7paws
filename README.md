@@ -1,7 +1,7 @@
 <div align="center">
   <img src="assets/logo.png" alt="7paws" width="128" height="128" />
   <h1>7paws</h1>
-  <p>Windows 与 macOS 的 3D 桌面小猫桌宠<br>全局键鼠响应 · 敲键追光标 · 摸猫呼噜 · 点击穿透</p>
+  <p>Windows 与 macOS 的 3D 桌面小猫桌宠<br>全局键鼠响应 · 照片或 AI 定制专属猫咪 · 摸猫呼噜 · 点击穿透</p>
   <p><a href="https://github.com/7wdn/7paws">GitHub</a> &nbsp;|&nbsp; <a href="https://github.com/7wdn/7paws/releases">下载</a> &nbsp;|&nbsp; <a href="https://github.com/7wdn/7paws/issues">反馈</a></p>
 </div>
 
