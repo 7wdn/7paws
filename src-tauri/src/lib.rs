@@ -561,16 +561,10 @@ fn delete_custom_cat(app: AppHandle, state: State<'_, AppState>, id: String) -> 
 }
 
 #[tauri::command]
-fn get_mcp_config() -> String {
-    let exe = std::env::current_exe()
+fn get_mcp_command() -> String {
+    std::env::current_exe()
         .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|_| "7paws.exe".to_string());
-    serde_json::json!({
-        "mcpServers": {
-            "7paws": { "command": exe, "args": ["--mcp"] }
-        }
-    })
-    .to_string()
+        .unwrap_or_else(|_| "7paws.exe".to_string())
 }
 
 #[tauri::command]
@@ -835,7 +829,7 @@ pub fn run() {
             get_custom_cats,
             save_custom_cat,
             delete_custom_cat,
-            get_mcp_config,
+            get_mcp_command,
             open_project_page,
             set_dragging,
             set_hit_regions,

@@ -27,7 +27,10 @@ const purrPetInput = document.getElementById("purrPet") as HTMLInputElement;
 const purrSleepInput = document.getElementById("purrSleep") as HTMLInputElement;
 const labelsInput = document.getElementById("showKeyLabels") as HTMLInputElement;
 const mcpEnabledInput = document.getElementById("mcpEnabled") as HTMLInputElement;
-const mcpConfigInput = document.getElementById("mcpConfig") as HTMLInputElement;
+const mcpClientSelect = document.getElementById("mcpClientSelect") as HTMLButtonElement;
+const mcpClientLabel = mcpClientSelect.querySelector(".dropdown-label") as HTMLSpanElement;
+const mcpCopyBtn = document.getElementById("mcpCopyBtn") as HTMLButtonElement;
+const mcpLocation = document.getElementById("mcpLocation") as HTMLSpanElement;
 const githubBtn = document.getElementById("githubBtn") as HTMLButtonElement;
 const resetBtn = document.getElementById("resetPosBtn") as HTMLButtonElement;
 const quitBtn = document.getElementById("quitBtn") as HTMLButtonElement;
@@ -62,6 +65,7 @@ function disarmDelete() {
 interface Choice {
   value: string;
   label: string;
+  badge?: string;
 }
 
 const layoutChoices: Choice[] = [
@@ -82,6 +86,151 @@ const patternChoices: Choice[] = [
   { value: "tabby", label: "虎斑" },
   { value: "calico", label: "三花" },
 ];
+
+type McpClientId =
+  | "qoder"
+  | "claudeCode"
+  | "cursor"
+  | "codebuddy"
+  | "zcode"
+  | "trae"
+  | "vscode"
+  | "windsurf"
+  | "codex"
+  | "deepseekHarness"
+  | "opencode"
+  | "pi"
+  | "cherryStudio"
+  | "workbuddy"
+  | "antigravity";
+
+interface McpClient {
+  id: McpClientId;
+  name: string;
+  location: string;
+}
+
+// Same clients and order as SevenShell: Qoder first with a 荐 badge.
+const MCP_CLIENTS: McpClient[] = [
+  { id: "qoder", name: "Qoder", location: "~/.qoder/mcp.json" },
+  { id: "claudeCode", name: "Claude Code", location: ".mcp.json" },
+  { id: "cursor", name: "Cursor", location: ".cursor/mcp.json" },
+  { id: "codebuddy", name: "CodeBuddy Code CLI", location: "~/.codebuddy/.mcp.json" },
+  { id: "zcode", name: "ZCode", location: "Settings → MCP Servers" },
+  { id: "trae", name: "TRAE", location: "Settings → MCP" },
+  { id: "vscode", name: "VS Code", location: ".vscode/mcp.json" },
+  { id: "windsurf", name: "Windsurf", location: "~/.codeium/windsurf/mcp_config.json" },
+  { id: "codex", name: "Codex", location: "~/.codex/config.toml" },
+  { id: "deepseekHarness", name: "DeepSeek Harness", location: "$DSH_HOME/profiles/web/cordis.patch.yml" },
+  { id: "opencode", name: "OpenCode", location: "~/.config/opencode/opencode.json" },
+  { id: "pi", name: "Pi", location: "~/.pi/agent/mcp.json" },
+  { id: "cherryStudio", name: "Cherry Studio", location: "Settings → MCP Servers" },
+  { id: "workbuddy", name: "WorkBuddy", location: "~/.workbuddy/mcp.json" },
+  { id: "antigravity", name: "Antigravity", location: "~/.gemini/config/mcp_config.json" },
+];
+
+let mcpClient: McpClientId = "qoder";
+let mcpCommand = "7paws.exe";
+
+function mcpClientInfo(id: McpClientId): McpClient {
+  return MCP_CLIENTS.find((c) => c.id === id) ?? MCP_CLIENTS[0];
+}
+
+function mcpSnippet(id: McpClientId): string {
+  const command = mcpCommand;
+  const args = ["--mcp"];
+  switch (id) {
+    case "vscode":
+      return JSON.stringify(
+        { servers: { "7paws": { type: "stdio", command, args } } },
+        null,
+        2,
+      );
+    case "cherryStudio":
+      return JSON.stringify(
+        {
+          mcpServers: {
+            "7paws": {
+              name: "7paws",
+              description: "",
+              baseUrl: "",
+              command,
+              args,
+              isActive: true,
+              type: "stdio",
+            },
+          },
+        },
+        null,
+        2,
+      );
+    case "codex":
+      return [
+        "[mcp_servers.7paws]",
+        `command = ${JSON.stringify(command)}`,
+        'args = ["--mcp"]',
+      ].join("\n");
+    case "deepseekHarness":
+      return [
+        "- insert:",
+        "    - id: mcp-7paws",
+        "      name: '@deepseek-ai/dsh-mcp-client'",
+        "      config:",
+        "        serverName: 7paws",
+        "        transport: stdio",
+        `        command: ${JSON.stringify(command)}`,
+        '        args: ["--mcp"]',
+      ].join("\n");
+    case "opencode":
+      return JSON.stringify(
+        { mcp: { "7paws": { type: "local", command: [command, "--mcp"] } } },
+        null,
+        2,
+      );
+    default:
+      return JSON.stringify(
+        { mcpServers: { "7paws": { command, args } } },
+        null,
+        2,
+      );
+  }
+}
+
+function syncMcpClient() {
+  const info = mcpClientInfo(mcpClient);
+  mcpClientLabel.textContent = info.name;
+  mcpLocation.textContent = `写进 ${info.location}`;
+}
+
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // Older WKWebView or denied permission: fall back to a hidden textarea.
+  }
+  try {
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    area.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+async function copyMcpSnippet() {
+  const ok = await copyToClipboard(mcpSnippet(mcpClient));
+  mcpCopyBtn.textContent = ok ? "已复制" : "复制失败";
+  window.setTimeout(() => {
+    mcpCopyBtn.textContent = "复制";
+  }, 1600);
+}
 
 const dropdownPopup = document.createElement("div");
 dropdownPopup.className = "dropdown-popup hidden";
@@ -132,9 +281,17 @@ function openDropdown(
     const option = document.createElement("button");
     option.type = "button";
     option.className = "dropdown-option";
-    option.textContent = choice.label;
     option.setAttribute("role", "option");
     option.setAttribute("aria-selected", String(choice.value === current()));
+    const label = document.createElement("span");
+    label.textContent = choice.label;
+    option.appendChild(label);
+    if (choice.badge) {
+      const badge = document.createElement("span");
+      badge.className = "rec-badge";
+      badge.textContent = choice.badge;
+      option.appendChild(badge);
+    }
     option.addEventListener("click", () => {
       pick(choice.value);
       closeDropdown();
@@ -401,6 +558,7 @@ function syncControls() {
   purrSleepInput.checked = settings.purrSleep;
   labelsInput.checked = settings.showKeyLabels;
   mcpEnabledInput.checked = settings.mcpEnabled;
+  syncMcpClient();
   syncCoatGrid();
   menuButtonSelected(settings.coat);
   const cat = activeCat();
@@ -566,14 +724,10 @@ async function refresh() {
       // Keep the last known list.
     }
     try {
-      mcpConfigInput.value = await invoke<string>("get_mcp_config");
+      mcpCommand = await invoke<string>("get_mcp_command");
     } catch {
-      mcpConfigInput.value = "";
+      // Keep the default command.
     }
-  } else {
-    mcpConfigInput.value = JSON.stringify({
-      mcpServers: { "7paws": { command: "7paws.exe", args: ["--mcp"] } },
-    });
   }
   syncControls();
 }
@@ -643,6 +797,24 @@ function bindControls() {
   mcpEnabledInput.addEventListener("change", () => {
     void saveSettings({ mcpEnabled: mcpEnabledInput.checked });
   });
+
+  mcpClientSelect.addEventListener("click", () => {
+    openDropdown(
+      mcpClientSelect,
+      MCP_CLIENTS.map((client) => ({
+        value: client.id,
+        label: client.name,
+        badge: client.id === "qoder" ? "荐" : undefined,
+      })),
+      () => mcpClient,
+      (value) => {
+        mcpClient = value as McpClientId;
+        syncMcpClient();
+      },
+    );
+  });
+
+  mcpCopyBtn.addEventListener("click", () => void copyMcpSnippet());
 
   githubBtn.addEventListener("click", () => {
     if (isTauri) {
