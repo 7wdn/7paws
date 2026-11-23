@@ -40,8 +40,15 @@ fn window_dimensions(layout: &str, scale: f64) -> (f64, f64) {
     ((w * s).round(), (h * s).round())
 }
 
+// 65 layout, right-handed; the frontend reports the active regions right after boot.
 fn default_regions() -> Vec<[f64; 4]> {
-    vec![[0.05, 0.04, 0.62, 0.92], [0.28, 0.56, 0.69, 0.42]]
+    vec![
+        [0.392, 0.160, 0.216, 0.309],
+        [0.369, 0.231, 0.262, 0.499],
+        [0.508, 0.474, 0.227, 0.253],
+        [0.325, 0.680, 0.428, 0.169],
+        [0.248, 0.667, 0.113, 0.145],
+    ]
 }
 
 fn resize_anchored_bottom_center(
