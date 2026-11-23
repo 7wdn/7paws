@@ -8,6 +8,7 @@
 
 - 设置里可以关闭托盘图标（macOS 为菜单栏图标）；关闭后仍可右键小猫打开设置重新开启。
 - 设置里可以打开开机自启（Windows 注册表 / macOS LaunchAgent）。
+- Windows 增加便携版 zip（x64 / ARM64），解压后双击运行，无需安装；需要系统已安装 WebView2 Runtime。
 
 ### 修复
 

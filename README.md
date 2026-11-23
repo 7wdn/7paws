@@ -53,6 +53,8 @@
 | --- | --- | --- |
 | Windows x64 | `*-x64-setup.exe` | Windows 10/11 x64 |
 | Windows ARM64 | `*-arm64-setup.exe` | Windows ARM64；安装器为 x86，应用为原生 ARM64 |
+| Windows x64 便携版 | `*-x64-portable.zip` | 解压后双击运行，无需安装；需要系统已安装 WebView2 Runtime |
+| Windows ARM64 便携版 | `*-arm64-portable.zip` | 同上 |
 | macOS Intel | `*-x64.dmg` | Intel Mac |
 | macOS Apple Silicon | `*-aarch64.dmg` | Apple Silicon |
 
