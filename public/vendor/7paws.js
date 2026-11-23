@@ -4,7 +4,7 @@ const stageEl = host, hintEl = document.createElement('div');
 // The look-development page had on-page controls; here they are detached stand-ins so the shared drawing code stays identical.
 const stubs = {}, $ = id => stubs[id] || (stubs[id] = document.createElement(id.startsWith('btn') ? 'button' : 'div'));
 const offs = [], on = (type, fn, opt) => { window.addEventListener(type, fn, opt); offs.push(() => window.removeEventListener(type, fn, opt)); };
-let dead = false, raf = 0, followKeys = false, showKeyLabels = true, lastStrikeAt = -1e9, halfRate = false;
+let dead = false, raf = 0, followKeys = false, showKeyLabels = true, lastStrikeAt = -1e9, idleTick = 0;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), mix = (a, b, t) => a + (b - a) * t, rnd = (a, b) => a + Math.random() * (b - a);
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -12,7 +12,7 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z);
 let renderer;
 try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); }
 catch (e) { return null; }
-renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+renderer.setPixelRatio(Math.min(1.5, devicePixelRatio || 1));   // [7paws] cap DPR: 2x framebuffers cost far more memory than they show
 stageEl.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(29, 1, 0.1, 100);
@@ -501,7 +501,7 @@ function frame() {
   S.thump *= Math.exp(-dt * 13);
 
   if (dead) return;
-  { const now = performance.now(); if (now - Math.max(S.lastKey, S.lastMouse, S.wokeAt || 0) > 2500 && !S.pet && now >= S.happyUntil && (halfRate = !halfRate)) { raf = requestAnimationFrame(frame); return; } }
+  { const now = performance.now(); if (now - Math.max(S.lastKey, S.lastMouse, S.wokeAt || 0) > 2500 && !S.pet && now >= S.happyUntil && (idleTick = (idleTick + 1) % (asleep ? 4 : 2))) { raf = requestAnimationFrame(frame); return; } }   // [7paws] idle: half rate; asleep: quarter rate
   const w = stageEl.clientWidth, h = stageEl.clientHeight; if (!w || !h) { raf = requestAnimationFrame(frame); return; }
   zzz.style.fontSize = (w * 0.063) + 'px';
   if (renderer.domElement.width !== Math.round(w * renderer.getPixelRatio()) || renderer.domElement.height !== Math.round(h * renderer.getPixelRatio())) { renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = w / h < 1 ? 38 : 31; camera.updateProjectionMatrix(); }
