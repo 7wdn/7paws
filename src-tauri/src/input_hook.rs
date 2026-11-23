@@ -368,13 +368,37 @@ mod accessibility {
     unsafe extern "C" {
         fn CGPreflightListenEventAccess() -> u8;
         fn CGRequestListenEventAccess() -> u8;
+        fn CGPreflightPostEventAccess() -> u8;
+    }
+
+    // Since macOS 15, CGRequestListenEventAccess no longer reliably registers
+    // the app in System Settings > Input Monitoring; the IOHID APIs do.
+    #[link(name = "IOKit", kind = "framework")]
+    unsafe extern "C" {
+        fn IOHIDCheckAccess(request_type: u32) -> u32;
+        fn IOHIDRequestAccess(request_type: u32) -> u8;
+    }
+
+    const K_IOHID_REQUEST_TYPE_LISTEN_EVENT: u32 = 1;
+    const K_IOHID_ACCESS_GRANTED: u32 = 0;
+
+    fn accessibility_granted() -> bool {
+        unsafe { AXIsProcessTrusted() != 0 || CGPreflightPostEventAccess() != 0 }
+    }
+
+    fn input_monitoring_granted() -> bool {
+        // CGPreflightListenEventAccess can stay false on macOS 15+ even when
+        // the toggle is on, so accept either signal.
+        unsafe {
+            IOHIDCheckAccess(K_IOHID_REQUEST_TYPE_LISTEN_EVENT) == K_IOHID_ACCESS_GRANTED
+                || CGPreflightListenEventAccess() != 0
+        }
     }
 
     // Keyboard event taps need Accessibility plus Input Monitoring on modern
-    // macOS. The prompts add the app to both panes; the user still has to
-    // toggle them, and macOS may require a relaunch before the tap opens.
+    // macOS. macOS may require a relaunch before the tap opens.
     pub fn is_trusted() -> bool {
-        unsafe { AXIsProcessTrusted() != 0 && CGPreflightListenEventAccess() != 0 }
+        accessibility_granted() && input_monitoring_granted()
     }
 
     pub fn prompt() {
@@ -389,6 +413,7 @@ mod accessibility {
             CFDictionary::from_CFType_pairs(&[(key, value)]);
         unsafe {
             AXIsProcessTrustedWithOptions(options.as_concrete_TypeRef() as *const std::ffi::c_void);
+            IOHIDRequestAccess(K_IOHID_REQUEST_TYPE_LISTEN_EVENT);
             CGRequestListenEventAccess();
         }
     }
@@ -522,7 +547,9 @@ fn run_macos_hook_loop(app: AppHandle) {
         if !accessibility::is_trusted() {
             if !prompted {
                 prompted = true;
-                accessibility::prompt();
+                // The system prompts must be triggered on the main thread.
+                let prompt_app = app.clone();
+                let _ = prompt_app.run_on_main_thread(accessibility::prompt);
             }
             report(false);
             std::thread::sleep(Duration::from_secs(3));
