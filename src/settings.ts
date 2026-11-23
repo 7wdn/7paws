@@ -33,6 +33,7 @@ const mcpCopyBtn = document.getElementById("mcpCopyBtn") as HTMLButtonElement;
 const mcpLocation = document.getElementById("mcpLocation") as HTMLSpanElement;
 const updateBtn = document.getElementById("updateBtn") as HTMLButtonElement;
 const githubBtn = document.getElementById("githubBtn") as HTMLButtonElement;
+const appVersionEl = document.getElementById("appVersion") as HTMLSpanElement;
 const resetBtn = document.getElementById("resetPosBtn") as HTMLButtonElement;
 const quitBtn = document.getElementById("quitBtn") as HTMLButtonElement;
 const closeBtn = document.getElementById("closeBtn") as HTMLButtonElement;
@@ -57,6 +58,7 @@ let settings: AppSettings = { ...defaultSettings };
 let customCats: CustomCat[] = [];
 let coatGridKey = "";
 let deleteArmedAt = 0;
+let appVersion = "dev";
 
 function disarmDelete() {
   deleteArmedAt = 0;
@@ -336,13 +338,12 @@ async function checkForUpdates() {
       showUpdatePopup("检查失败，版本服务暂时不可用", false);
       return;
     }
-    const current = isTauri
-      ? await invoke<string>("get_app_version").catch(() => "0.0.0")
-      : "0.0.0";
+    const current = appVersion === "dev" ? "0.0.0" : appVersion;
+    const currentLabel = appVersion === "dev" ? "开发预览" : `v${appVersion}`;
     if (isNewerVersion(latest, current)) {
-      showUpdatePopup(`发现新版本 ${latest}`, true);
+      showUpdatePopup(`发现新版本 ${latest}（当前 ${currentLabel}）`, true);
     } else {
-      showUpdatePopup(`已是最新版本（${current}）`, false);
+      showUpdatePopup(`已是最新版本（${currentLabel}）`, false);
     }
   } catch (error) {
     showUpdatePopup(updateErrorMessage(error), false);
@@ -849,7 +850,13 @@ async function refresh() {
     } catch {
       // Keep the default command.
     }
+    try {
+      appVersion = await invoke<string>("get_app_version");
+    } catch {
+      appVersion = "dev";
+    }
   }
+  appVersionEl.textContent = appVersion === "dev" ? "7paws 开发预览" : `7paws v${appVersion}`;
   syncControls();
 }
 
