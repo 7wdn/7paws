@@ -1,5 +1,8 @@
 use crate::config::AppSettings;
+#[cfg(windows)]
 use crate::keymap;
+#[cfg(target_os = "macos")]
+use crate::keymap_macos;
 use serde::Serialize;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -31,6 +34,12 @@ pub enum CatInput {
     },
 }
 
+#[cfg(target_os = "macos")]
+#[derive(Debug, Clone, Serialize)]
+pub struct InputStatus {
+    pub trusted: bool,
+}
+
 enum RawHookMsg {
     KeyDown {
         vk: u32,
@@ -49,9 +58,29 @@ enum RawHookMsg {
 
 static HOOK_TX: OnceLock<mpsc::Sender<RawHookMsg>> = OnceLock::new();
 
+fn code_for_raw(vk: u32, scan: u32, extended: bool) -> &'static str {
+    #[cfg(windows)]
+    {
+        keymap::code_for(vk, scan, extended)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let _ = (scan, extended);
+        keymap_macos::code_for(vk as u16)
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
+    {
+        let _ = (vk, scan, extended);
+        "Unidentified"
+    }
+}
+
 pub fn start_global_hooks(app: AppHandle, settings: Arc<Mutex<AppSettings>>) {
     let (tx, rx) = mpsc::channel::<RawHookMsg>();
     let _ = HOOK_TX.set(tx);
+
+    #[cfg(target_os = "macos")]
+    let mac_app = app.clone();
 
     std::thread::spawn(move || {
         let mut pressed = [false; 1024];
@@ -77,7 +106,7 @@ pub fn start_global_hooks(app: AppHandle, settings: Arc<Mutex<AppSettings>>) {
                         pressed[idx] = true;
                         pressed_at[idx] = now;
                     }
-                    let code = keymap::code_for(vk, scan, extended);
+                    let code = code_for_raw(vk, scan, extended);
                     if privacy {
                         if !repeat && code != "Unidentified" {
                             let side = if keymap::is_left_hand(code) {
@@ -114,7 +143,7 @@ pub fn start_global_hooks(app: AppHandle, settings: Arc<Mutex<AppSettings>>) {
                     let idx = (vk as usize) % 1024;
                     pressed[idx] = false;
                     if !privacy {
-                        let code = keymap::code_for(vk, scan, extended);
+                        let code = code_for_raw(vk, scan, extended);
                         let _ = app.emit(
                             "cat-input",
                             CatInput::KeyUp {
@@ -153,6 +182,8 @@ pub fn start_global_hooks(app: AppHandle, settings: Arc<Mutex<AppSettings>>) {
 
     #[cfg(windows)]
     std::thread::spawn(run_windows_hook_loop);
+    #[cfg(target_os = "macos")]
+    std::thread::spawn(move || run_macos_hook_loop(mac_app));
 }
 
 #[cfg(windows)]
@@ -167,7 +198,24 @@ fn normalize_window_point(app: &AppHandle, x: i32, y: i32) -> (f64, f64) {
     (0.5, 0.5)
 }
 
-#[cfg(not(windows))]
+// The macOS tap carries no useful screen point (CGEvent locations are in
+// points, not physical pixels), so the emitter asks Tauri for the cursor.
+#[cfg(target_os = "macos")]
+fn normalize_window_point(app: &AppHandle, _x: i32, _y: i32) -> (f64, f64) {
+    let Ok(cursor) = app.cursor_position() else {
+        return (0.5, 0.5);
+    };
+    if let Some(win) = app.get_webview_window("main") {
+        if let (Ok(pos), Ok(size)) = (win.outer_position(), win.outer_size()) {
+            let w = size.width.max(1) as f64;
+            let h = size.height.max(1) as f64;
+            return ((cursor.x - pos.x as f64) / w, (cursor.y - pos.y as f64) / h);
+        }
+    }
+    (0.5, 0.5)
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 fn normalize_window_point(_app: &AppHandle, _x: i32, _y: i32) -> (f64, f64) {
     (0.5, 0.5)
 }
@@ -268,6 +316,197 @@ fn run_windows_hook_loop() {
         }
         if !ms_hook.is_null() {
             UnhookWindowsHookEx(ms_hook);
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+mod accessibility {
+    #[link(name = "ApplicationServices", kind = "framework")]
+    unsafe extern "C" {
+        fn AXIsProcessTrusted() -> u8;
+        fn AXIsProcessTrustedWithOptions(options: *const std::ffi::c_void) -> u8;
+    }
+
+    // CGEventTap only receives keyboard events while 7paws is trusted for
+    // Accessibility. The prompt adds the app to the pane; the user still has
+    // to toggle it, and macOS may require a relaunch before the tap opens.
+    pub fn is_trusted() -> bool {
+        unsafe { AXIsProcessTrusted() != 0 }
+    }
+
+    pub fn prompt() {
+        use core_foundation::base::TCFType;
+        use core_foundation::boolean::CFBoolean;
+        use core_foundation::dictionary::CFDictionary;
+        use core_foundation::string::CFString;
+
+        let key = CFString::new("AXTrustedCheckOptionPrompt");
+        let value = CFBoolean::true_value();
+        let options: CFDictionary<CFString, CFBoolean> =
+            CFDictionary::from_CFType_pairs(&[(key, value)]);
+        unsafe {
+            AXIsProcessTrustedWithOptions(options.as_concrete_TypeRef() as *const std::ffi::c_void);
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn forward_macos_event(
+    etype: core_graphics::event::CGEventType,
+    event: &core_graphics::event::CGEvent,
+) {
+    use core_graphics::event::{CGEventFlags, CGEventType, EventField};
+
+    let Some(tx) = HOOK_TX.get() else {
+        return;
+    };
+    let keycode = || event.get_integer_value_field(EventField::KEYBOARD_EVENT_KEYCODE) as u32;
+    match etype {
+        CGEventType::KeyDown => {
+            let _ = tx.send(RawHookMsg::KeyDown {
+                vk: keycode(),
+                scan: 0,
+                extended: false,
+            });
+        }
+        CGEventType::KeyUp => {
+            let _ = tx.send(RawHookMsg::KeyUp {
+                vk: keycode(),
+                scan: 0,
+                extended: false,
+            });
+        }
+        CGEventType::FlagsChanged => {
+            let kc = keycode();
+            let flags = event.get_flags();
+            let down = match kc {
+                0x38 | 0x3C => flags.contains(CGEventFlags::CGEventFlagShift),
+                0x3B | 0x3E => flags.contains(CGEventFlags::CGEventFlagControl),
+                0x3A | 0x3D => flags.contains(CGEventFlags::CGEventFlagAlternate),
+                0x36 | 0x37 => flags.contains(CGEventFlags::CGEventFlagCommand),
+                0x39 => flags.contains(CGEventFlags::CGEventFlagAlphaShift),
+                0x3F => flags.contains(CGEventFlags::CGEventFlagSecondaryFn),
+                _ => false,
+            };
+            let _ = tx.send(if down {
+                RawHookMsg::KeyDown {
+                    vk: kc,
+                    scan: 0,
+                    extended: false,
+                }
+            } else {
+                RawHookMsg::KeyUp {
+                    vk: kc,
+                    scan: 0,
+                    extended: false,
+                }
+            });
+        }
+        CGEventType::MouseMoved
+        | CGEventType::LeftMouseDragged
+        | CGEventType::RightMouseDragged
+        | CGEventType::OtherMouseDragged => {
+            let _ = tx.send(RawHookMsg::MouseMoved { x: 0, y: 0 });
+        }
+        CGEventType::LeftMouseDown => {
+            let _ = tx.send(RawHookMsg::MouseDown("left"));
+        }
+        CGEventType::LeftMouseUp => {
+            let _ = tx.send(RawHookMsg::MouseUp("left"));
+        }
+        CGEventType::RightMouseDown => {
+            let _ = tx.send(RawHookMsg::MouseDown("right"));
+        }
+        CGEventType::RightMouseUp => {
+            let _ = tx.send(RawHookMsg::MouseUp("right"));
+        }
+        CGEventType::OtherMouseDown | CGEventType::OtherMouseUp => {
+            let button = event.get_integer_value_field(EventField::MOUSE_EVENT_BUTTON_NUMBER);
+            let name = match button {
+                2 => "middle",
+                3 => "back",
+                4 => "forward",
+                _ => "other",
+            };
+            let _ = tx.send(if matches!(etype, CGEventType::OtherMouseDown) {
+                RawHookMsg::MouseDown(name)
+            } else {
+                RawHookMsg::MouseUp(name)
+            });
+        }
+        _ => {}
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn run_macos_hook_loop(app: AppHandle) {
+    use core_foundation::runloop::CFRunLoop;
+    use core_graphics::event::{
+        CGEventTap, CGEventTapLocation, CGEventTapOptions, CGEventTapPlacement, CGEventType,
+        CallbackResult,
+    };
+
+    let events = vec![
+        CGEventType::KeyDown,
+        CGEventType::KeyUp,
+        CGEventType::FlagsChanged,
+        CGEventType::MouseMoved,
+        CGEventType::LeftMouseDragged,
+        CGEventType::RightMouseDragged,
+        CGEventType::OtherMouseDragged,
+        CGEventType::LeftMouseDown,
+        CGEventType::LeftMouseUp,
+        CGEventType::RightMouseDown,
+        CGEventType::RightMouseUp,
+        CGEventType::OtherMouseDown,
+        CGEventType::OtherMouseUp,
+    ];
+
+    let mut last_reported: Option<bool> = None;
+    let mut prompted = false;
+    let mut report = |trusted: bool| {
+        // Repeat the "missing permission" state so a webview that loads after
+        // the hook thread still shows the notice; report success only once.
+        if trusted && last_reported == Some(true) {
+            return;
+        }
+        last_reported = Some(trusted);
+        let _ = app.emit("cat-input-status", InputStatus { trusted });
+    };
+
+    loop {
+        if !accessibility::is_trusted() {
+            if !prompted {
+                prompted = true;
+                accessibility::prompt();
+            }
+            report(false);
+            std::thread::sleep(Duration::from_secs(3));
+            continue;
+        }
+
+        report(true);
+        let result = CGEventTap::with_enabled(
+            CGEventTapLocation::HID,
+            CGEventTapPlacement::HeadInsertEventTap,
+            CGEventTapOptions::ListenOnly,
+            events.clone(),
+            |_proxy, etype, event| {
+                forward_macos_event(etype, event);
+                CallbackResult::Keep
+            },
+            || {
+                CFRunLoop::run_current();
+            },
+        );
+
+        match result {
+            Ok(()) => break,
+            Err(()) => {
+                report(false);
+                std::thread::sleep(Duration::from_secs(3));
+            }
         }
     }
 }
