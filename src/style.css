@@ -215,7 +215,7 @@ body.settings-body .menu-head {
 
 .coat-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
 }
 
@@ -223,6 +223,7 @@ body.settings-body .menu-head {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
   padding: 6px 7px;
   border: 1px solid transparent;
   border-radius: 9px;
@@ -255,6 +256,12 @@ body.settings-body .menu-head {
   border-radius: 50%;
   border: 1px solid rgba(0, 0, 0, 0.18);
   box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.08);
+}
+
+.coat-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .slider {
