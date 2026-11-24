@@ -446,6 +446,7 @@ fn update_settings(
     s.keyboard_layout = patch.keyboard_layout;
     s.show_tray_icon = patch.show_tray_icon;
     s.mcp_enabled = patch.mcp_enabled;
+    s.run_as_admin = patch.run_as_admin;
 
     if prev_autostart != s.autostart {
         let _ = set_autostart(s.autostart);
@@ -746,6 +747,11 @@ fn get_mcp_command() -> String {
     std::env::current_exe()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|_| "7paws.exe".to_string())
+}
+
+#[tauri::command]
+fn is_portable_install() -> bool {
+    config::is_portable_install()
 }
 
 #[tauri::command]
@@ -1054,6 +1060,10 @@ fn run_inner(_restarting: bool) {
     configure_win7_runtime();
 
     let mut initial = load_settings();
+    #[cfg(windows)]
+    if windows_zorder::request_elevated_startup(initial.run_as_admin) {
+        std::process::exit(0);
+    }
     let custom_cats = Arc::new(Mutex::new(cats::load_custom_cats()));
     if !cats::is_builtin_coat(&initial.coat)
         && !custom_cats
@@ -1155,6 +1165,7 @@ fn run_inner(_restarting: bool) {
             save_custom_cat,
             delete_custom_cat,
             get_mcp_command,
+            is_portable_install,
             create_desktop_shortcut,
             restart_as_admin,
             open_project_page,

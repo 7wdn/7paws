@@ -117,7 +117,7 @@ tccutil reset All com.qoder.7paws
 - 如果提示 **Could not find the WebView2 Runtime**，常见于 Windows 10 LTSC、精简版或移除了 Edge 的系统。可安装微软官方的 [Evergreen Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)，安装后重新打开 7paws。离线环境请先在有网络的机器下载安装程序，再拷贝到目标机器。
 - 未签名安装包可能显示「未知发布者」；确认文件来自本仓库的 Releases 后，可以选择「更多信息 → 仍要运行」。
 - Windows ARM64 版需要 ARM64 WebView2 Runtime，安装包会自动尝试安装。
-- Windows 便携版可在设置页创建桌面快捷方式；快捷方式指向当前 `7paws.exe`，不会复制文件或运行时。
+- Windows 便携版可在设置页创建桌面快捷方式；快捷方式指向当前 `7paws.exe`，不会复制文件或运行时。NSIS 安装版不显示该入口。
 - Windows 7 SP1 x64 兼容版的安装与限制见下文。
 
 ## 全屏游戏
@@ -125,6 +125,7 @@ tccutil reset All com.qoder.7paws
 - Windows 10/11 会持续检查小猫的 topmost 状态和前台窗口 Z 序；被无边框或全屏优化游戏盖住时，自动恢复置顶且不抢焦点。实现参考 KuroCat 的持续 Z 序守卫思路。
 - 设置窗口打开、拖拽小猫或隐藏小猫时暂停守卫。
 - 如果游戏本身以管理员权限运行，可在设置页选择「以管理员身份重启」。此操作不会自动提权，需要你确认 UAC。
+- 可开启「默认以管理员身份运行」，下次启动时按需请求 UAC；已经提权时不会循环提示。默认关闭，开机自启也可能因此弹出 UAC。
 - 独占式全屏、使用内核反作弊的游戏可能禁止其他窗口覆盖；建议使用无边框窗口化，必要时暂停或隐藏小猫。
 
 ## Windows 7 兼容版
@@ -237,6 +238,7 @@ tccutil reset All com.qoder.7paws
 | 显示托盘图标 | 开启 |
 | 允许 AI 接入（MCP） | 开启 |
 | 开机自启 | 关闭 |
+| 默认以管理员身份运行 | 关闭 |
 | 鼠标在左手边 | 关闭 |
 | 锁定鼠标穿透 | 关闭 |
 | 隐私模式 | 关闭 |

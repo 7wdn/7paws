@@ -32,6 +32,7 @@ export interface AppSettings {
   purrPet: boolean;
   purrSleep: boolean;
   autostart: boolean;
+  runAsAdmin: boolean;
   privacyMode: boolean;
   leftMouse: boolean;
   coat: string;

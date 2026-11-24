@@ -23,6 +23,8 @@ const leftMouseInput = document.getElementById("leftMouse") as HTMLInputElement;
 const clickThroughLockedInput = document.getElementById("clickThroughLocked") as HTMLInputElement;
 const showTrayIconInput = document.getElementById("showTrayIcon") as HTMLInputElement;
 const autostartInput = document.getElementById("autostart") as HTMLInputElement;
+const runAsAdminInput = document.getElementById("runAsAdmin") as HTMLInputElement;
+const adminRunHint = document.getElementById("adminRunHint") as HTMLDivElement;
 const privacyInput = document.getElementById("privacyMode") as HTMLInputElement;
 const purrPetInput = document.getElementById("purrPet") as HTMLInputElement;
 const purrSleepInput = document.getElementById("purrSleep") as HTMLInputElement;
@@ -683,6 +685,7 @@ function syncControls() {
   clickThroughLockedInput.checked = settings.clickThroughLocked;
   showTrayIconInput.checked = settings.showTrayIcon;
   autostartInput.checked = settings.autostart;
+  runAsAdminInput.checked = settings.runAsAdmin;
   privacyInput.checked = settings.privacyMode;
   purrPetInput.checked = settings.purrPet;
   purrSleepInput.checked = settings.purrSleep;
@@ -918,6 +921,14 @@ function bindControls() {
   autostartInput.addEventListener("change", () => {
     void saveSettings({ autostart: autostartInput.checked });
   });
+  runAsAdminInput.addEventListener("change", () => {
+    const enabled = runAsAdminInput.checked;
+    adminRunHint.className = "menu-hint mcp-hint";
+    adminRunHint.textContent = enabled
+      ? "将在下次启动时请求 UAC；若取消则本次仍以普通权限运行"
+      : "已关闭，下次启动不再自动请求管理员权限";
+    void saveSettings({ runAsAdmin: enabled });
+  });
   privacyInput.addEventListener("change", () => {
     void saveSettings({ privacyMode: privacyInput.checked });
   });
@@ -1104,7 +1115,11 @@ function bindControls() {
 }
 
 async function boot() {
-  shortcutSection.hidden = !(isTauri && isWindows);
+  let portable = false;
+  if (isTauri && isWindows) {
+    portable = await invoke<boolean>("is_portable_install").catch(() => false);
+  }
+  shortcutSection.hidden = !(isTauri && isWindows && portable);
   gameSection.hidden = !(isTauri && isWindows);
   buildCoatButtons();
   bindControls();
