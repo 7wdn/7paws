@@ -318,7 +318,7 @@ pnpm dev
 浏览器预览没有 Tauri 全局钩子和原生窗口，键鼠动作不会触发全局响应，设置只保存在内存中。右键小猫会在新窗口打开设置页，也可直接访问 `settings.html`。可用参数：
 
 - `?demo=1`：自动输入演示。
-- `?localinput`：捕获当前窗口内的键盘事件。
+- `?localinput`：捕获当前窗口内的键盘与滚轮事件。
 - `?previewCoat=tuxedo`：预览指定毛色，可选 `tuxedo`、`orange`、`tabby`、`calico`、`white`、`blue`、`siamese`。
 
 ## 隐私与安全

@@ -60,6 +60,10 @@ function listenGlobalKeysForDev() {
   window.addEventListener("keyup", (e) => {
     scene.handleInput({ kind: "keyUp", code: e.code });
   });
+  window.addEventListener("wheel", (e) => {
+    if (!e.deltaY) return;
+    scene.handleInput({ kind: "mouseWheel", delta: e.deltaY < 0 ? 1 : -1 });
+  }, { passive: true });
 }
 
 function runDemo() {
