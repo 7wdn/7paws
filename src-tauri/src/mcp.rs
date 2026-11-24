@@ -5,13 +5,14 @@ use std::io::{BufRead, Write};
 
 const SERVER_NAME: &str = "7paws";
 
-const BUILTIN: [(&str, &str); 6] = [
+const BUILTIN: [(&str, &str); 7] = [
     ("tuxedo", "奶牛猫"),
     ("orange", "橘猫"),
     ("tabby", "狸花猫"),
     ("calico", "三花猫"),
     ("white", "白猫"),
     ("blue", "蓝灰猫"),
+    ("siamese", "暹罗猫"),
 ];
 
 fn tool_definitions() -> Value {
