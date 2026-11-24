@@ -625,7 +625,9 @@ function buildCoatButtons() {
       ? `linear-gradient(135deg, ${coat.fur} 52%, ${coat.patchA ?? "#e9973f"} 52%)`
       : coat.pattern === "tabby"
         ? `linear-gradient(180deg, ${coat.fur} 62%, ${coat.stripe ?? coat.fur} 62%)`
-        : coat.fur;
+        : coat.pattern === "point"
+          ? `radial-gradient(circle at 50% 58%, ${coat.tail ?? coat.paw} 0 30%, ${coat.fur} 38%)`
+          : coat.fur;
     const sw = document.createElement("span");
     sw.className = "coat-swatch";
     sw.style.background = swatch;

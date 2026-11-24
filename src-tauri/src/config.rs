@@ -5,7 +5,7 @@ use std::path::PathBuf;
 pub const MIN_SCALE: f64 = 0.1;
 pub const MAX_SCALE: f64 = 1.5;
 
-pub(crate) const COATS: [&str; 6] = ["tuxedo", "orange", "tabby", "calico", "white", "blue"];
+pub(crate) const COATS: [&str; 7] = ["tuxedo", "orange", "tabby", "calico", "white", "blue", "siamese"];
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
