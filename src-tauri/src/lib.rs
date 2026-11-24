@@ -86,31 +86,39 @@ impl Drop for SingleInstanceGuard {
 }
 
 #[cfg(windows)]
-fn acquire_single_instance() -> Option<SingleInstanceGuard> {
+fn acquire_single_instance(retry_until_available: bool) -> Option<SingleInstanceGuard> {
+    use std::time::{Duration, Instant};
     use windows_sys::Win32::Foundation::{
-        GetLastError, SetLastError, ERROR_ALREADY_EXISTS, HANDLE,
+        CloseHandle, GetLastError, SetLastError, ERROR_ALREADY_EXISTS, HANDLE,
     };
     use windows_sys::Win32::System::Threading::CreateMutexW;
 
     let name: Vec<u16> = "Local\\com.qoder.7paws.SingleInstance\0"
         .encode_utf16()
         .collect();
-    unsafe {
-        SetLastError(0);
-    }
-    let handle: HANDLE = unsafe { CreateMutexW(std::ptr::null(), 1, name.as_ptr()) };
-    if handle.is_null() {
-        eprintln!("failed to create the 7paws single-instance mutex");
-        return None;
-    }
-    let error = unsafe { GetLastError() };
-    if error == ERROR_ALREADY_EXISTS {
+    let deadline = Instant::now() + Duration::from_secs(15);
+    loop {
         unsafe {
-            windows_sys::Win32::Foundation::CloseHandle(handle);
+            SetLastError(0);
         }
-        return None;
+        let handle: HANDLE = unsafe { CreateMutexW(std::ptr::null(), 1, name.as_ptr()) };
+        if handle.is_null() {
+            eprintln!("failed to create the 7paws single-instance mutex");
+            return None;
+        }
+        let error = unsafe { GetLastError() };
+        if error == ERROR_ALREADY_EXISTS {
+            unsafe {
+                CloseHandle(handle);
+            }
+            if !retry_until_available || Instant::now() >= deadline {
+                return None;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+            continue;
+        }
+        return Some(SingleInstanceGuard(handle));
     }
-    Some(SingleInstanceGuard(handle))
 }
 
 fn base_dimensions(layout: &str) -> (f64, f64) {
@@ -1027,8 +1035,18 @@ fn restart_as_admin(app: AppHandle) -> Result<String, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    run_inner(false);
+}
+
+#[cfg(windows)]
+pub fn run_after_restart() {
+    std::thread::sleep(std::time::Duration::from_millis(1_000));
+    run_inner(true);
+}
+
+fn run_inner(_restarting: bool) {
     #[cfg(windows)]
-    let Some(_single_instance_guard) = acquire_single_instance() else {
+    let Some(_single_instance_guard) = acquire_single_instance(_restarting) else {
         return;
     };
 

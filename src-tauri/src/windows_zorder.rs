@@ -220,6 +220,9 @@ pub fn wait_for_process_exit(process_id: u32) -> bool {
 pub fn restart_as_admin(app: AppHandle) -> Result<String, String> {
     let exe = std::env::current_exe().map_err(|error| error.to_string())?;
     let process_id = std::process::id();
+    if let Some(settings) = app.get_webview_window("settings") {
+        let _ = settings.hide();
+    }
     std::thread::spawn(move || {
         let operation = wide(OsStr::new("runas"));
         let file = wide(exe.as_os_str());
@@ -239,6 +242,12 @@ pub fn restart_as_admin(app: AppHandle) -> Result<String, String> {
             )
         };
         if result > 32 {
+            #[cfg(not(feature = "win7"))]
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.hide();
+            }
+            #[cfg(feature = "win7")]
+            crate::win7::set_visible(false);
             app.exit(0);
         }
     });
