@@ -3,6 +3,7 @@
 ;   1. BrandingText shows the product and version instead of the copyright.
 ;   2. Installer follows the Windows UI language and stores it for the uninstaller.
 ;   3. Uninstaller falls back to the Windows UI language when nothing is stored.
+;   4. Elevated app instances get an explicit admin-permission hint.
 Unicode true
 ManifestDPIAware true
 ; Add in `dpiAwareness` `PerMonitorV2` to manifest for Windows 10 1607+ (note this should not affect lower versions since they should be able to ignore this and pick up `dpiAware` `true` set by `ManifestDPIAware true`)
@@ -507,6 +508,9 @@ FunctionEnd
 !insertmacro MUI_LANGUAGE "{{this}}"
 LangString choowHowToInstall 0 ""
 {{/each}}
+LangString elevatedAppRunning ${LANG_ENGLISH} "${PRODUCTNAME} may be running as administrator. Please exit it from the tray, or end the process in Task Manager opened as administrator, then try again."
+LangString elevatedAppRunning ${LANG_SIMPCHINESE} "检测到 ${PRODUCTNAME} 可能正在以管理员权限运行。请从托盘退出，或以管理员身份打开任务管理器结束进程后重试。"
+
 !insertmacro MUI_RESERVEFILE_LANGDLL
 {{#each language_files}}
   !include "{{this}}"
@@ -692,6 +696,35 @@ Section WebView2
   ${EndIf}
 SectionEnd
 
+; Restart Manager reports permission denied when the running app is elevated.
+; Explain that case before the upstream generic close prompt.
+!macro CheckIfElevatedAppRunning executablePath productName
+  !define UniqueID ${__LINE__}
+  nsis_tauri_utils::StrReplace "$(elevatedAppRunning)" "{{product_name}}" "${productName}"
+  Pop $R1
+  !insertmacro RestartManager_StartSession $R0
+  ${If} $R0 != ""
+    !insertmacro RestartManager_RegisterFile $R0 "${executablePath}"
+    ${If} $0 = 0
+      System::Call 'RSTRTMGR::RmGetList(p R0, *i .r1, *i .r2, p 0, *i .r3) i .r0'
+      ${If} $0 = ${ERROR_MORE_DATA}
+        IntOp $0 $3 & ${RmRebootReasonPermissionDenied}
+        ${If} $0 <> 0
+          !insertmacro RestartManager_EndSession $R0
+          IfSilent elevated_silent_${UniqueID} 0
+          MessageBox MB_OK|MB_ICONEXCLAMATION $R1
+          Abort
+          elevated_silent_${UniqueID}:
+          DetailPrint $R1
+          Abort
+        ${EndIf}
+      ${EndIf}
+    ${EndIf}
+    !insertmacro RestartManager_EndSession $R0
+  ${EndIf}
+  !undef UniqueID
+!macroend
+
 Section Install
   SetOutPath $INSTDIR
 
@@ -699,6 +732,7 @@ Section Install
     !insertmacro NSIS_HOOK_PREINSTALL
   !endif
 
+  !insertmacro CheckIfElevatedAppRunning "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
   !insertmacro CheckIfAppIsRunning "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
 
   ; Copy main executable
@@ -846,6 +880,7 @@ Section Uninstall
     !insertmacro NSIS_HOOK_PREUNINSTALL
   !endif
 
+  !insertmacro CheckIfElevatedAppRunning "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
   !insertmacro CheckIfAppIsRunning "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
 
   ; Delete the app directory and its content from disk
