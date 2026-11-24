@@ -70,7 +70,7 @@ Copy-Item -Path (Join-Path $root "src-tauri/win7/LICENSE-VC-LTL.txt") -Destinati
 Copy-Item -Recurse -Path $runtime -Destination $stage
 
 $out = Join-Path $release "bundle/portable"
-$zip = Join-Path $out "7paws_${version}_win7-x64-portable.zip"
+$zip = Join-Path $out "7paws_${version}-win7-x64-portable.zip"
 if (Test-Path $zip) {
   Remove-Item -Force -Path $zip
 }
