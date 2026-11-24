@@ -20,6 +20,7 @@ const layoutSelect = document.getElementById("layoutSelect") as HTMLButtonElemen
 const sleepLabel = sleepSelect.querySelector(".dropdown-label") as HTMLSpanElement;
 const layoutLabel = layoutSelect.querySelector(".dropdown-label") as HTMLSpanElement;
 const leftMouseInput = document.getElementById("leftMouse") as HTMLInputElement;
+const alwaysOnTopInput = document.getElementById("alwaysOnTop") as HTMLInputElement;
 const clickThroughLockedInput = document.getElementById("clickThroughLocked") as HTMLInputElement;
 const showTrayIconInput = document.getElementById("showTrayIcon") as HTMLInputElement;
 const autostartInput = document.getElementById("autostart") as HTMLInputElement;
@@ -687,6 +688,7 @@ function syncControls() {
   layoutLabel.textContent = layoutChoices.find((c) => c.value === settings.keyboardLayout)?.label
     ?? settings.keyboardLayout;
   leftMouseInput.checked = settings.leftMouse;
+  alwaysOnTopInput.checked = settings.alwaysOnTop;
   clickThroughLockedInput.checked = settings.clickThroughLocked;
   showTrayIconInput.checked = settings.showTrayIcon;
   autostartInput.checked = settings.autostart;
@@ -916,6 +918,9 @@ function bindControls() {
 
   leftMouseInput.addEventListener("change", () => {
     void saveSettings({ leftMouse: leftMouseInput.checked });
+  });
+  alwaysOnTopInput.addEventListener("change", () => {
+    void saveSettings({ alwaysOnTop: alwaysOnTopInput.checked });
   });
   clickThroughLockedInput.addEventListener("change", () => {
     void saveSettings({ clickThroughLocked: clickThroughLockedInput.checked });
