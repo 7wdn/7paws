@@ -196,6 +196,7 @@ const mouseBody = new THREE.Mesh(new THREE.SphereGeometry(0.3, 24, 16), flat('#f
 const mouseRim = new THREE.Mesh(mouseBody.geometry, back('#1c1d1a')); mouseRim.scale.set(0.77, 0.47, 1.27); mouseRim.position.y = 0.1; mouseGroup.add(mouseRim);
 const mouseBtn = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.02, 0.16), flat('#1c1d1a')); mouseBtn.position.set(0, 0.215, 0.24); mouseGroup.add(mouseBtn);
 const mouseWheel = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 0.09), flat('#f2b25c')); mouseWheel.position.set(0, 0.222, 0.16); mouseGroup.add(mouseWheel);
+const BTN_INK = new THREE.Color('#1c1d1a');
 
 /* ---------- the cat: one flowing body, an oval head, oval-ended legs, and a tail that grows out of the hip ---------- */
 const cat = new THREE.Group(); cat.position.set(0, 0, 0.08); scene.add(cat);
@@ -421,7 +422,7 @@ $('btnCopy').onclick = () => { const out = $('shapeOut'), note = $('copied'); ou
 const RISE = 30, FALL = 46, STRIKE = RISE + FALL;
 const S = { last: performance.now(), lastKey: -1e9, lastMouse: -1e9, lastInput: performance.now(), sleepAt: 0, down: new Map(), thump: 0, thumpSide: 0, jolt: -1e9, rate: 0,
   turn: 0, nod: 0, tilt: 0, lid: 0, blinkAt: performance.now() + 2500, blinkUntil: 0, happyUntil: 0, bounceAt: -1e9, act: null, actUntil: 0, nextAct: performance.now() + 6000, loaf: 0, curl: 0,
-  gazeX: 0, gazeY: 0, pointer: null, phase: 0, lastSide: 'L', alt: 'L', spin: 0, spinning: false, mouseDown: false, wigX: 0, wigZ: 0, lidDir: 1, mouseLean: 0, sx: 0, fwd: 0, fwdGoal: 0, demoMouse: 0, chips: [] };
+  gazeX: 0, gazeY: 0, pointer: null, phase: 0, lastSide: 'L', alt: 'L', spin: 0, spinning: false, mouseDown: false, wigX: 0, wigZ: 0, lidDir: 1, mouseLean: 0, sx: 0, fwd: 0, fwdGoal: 0, demoMouse: 0, wheelAt: -1e9, wheelDir: 1, chips: [] };
 const sleeping = t => S.sleepAt && t > S.sleepAt;
 if (VIEW.get('eyes') === 'shut') { S.blinkUntil = 1e13; S.blinkAt = 1e14; } if (VIEW.get('eyes') === 'happy') S.happyUntil = 1e13; if (VIEW.get('coat')) setTimeout(() => setCoat(+VIEW.get('coat')), 0); if (VIEW.get('wall')) setTimeout(() => setWall(+VIEW.get('wall')), 0);   // preview switches
 let SLEEP_AFTER = VIEW.get('sleep') ? +VIEW.get('sleep') * 1000 : (options.sleepMinutes || 5) * 60000;              // falls asleep by itself after this long without keys or mouse
@@ -514,6 +515,8 @@ function frame() {
   const mouseOn = mouseGroup.visible && t - S.lastMouse < 1600 && !asleep, mousing = mouseGroup.visible && t - S.lastMouse < 2200 && S.lastMouse > S.lastKey && !asleep;   // paw on the mouse / whole attention on the mouse
   S.wigX *= Math.exp(-dt * 5); S.wigZ *= Math.exp(-dt * 5); S.mouseLean += ((mousing ? 1 : 0) - S.mouseLean) * ease(6);
   mouseGroup.position.set(MOUSE_AT.x + (DESK_DIR > 0 ? Math.min(S.wigX, 0.05) : Math.max(S.wigX, -0.05)), 0, MOUSE_AT.z + S.wigZ); mouseBody.material.color.copy(capColor).lerp(hitColor, S.mouseDown && mouseOn ? 1 : 0);
+  const wheelK = Math.max(0, 1 - (t - S.wheelAt) / 260), wheelEase = wheelK > 0 ? Math.sin((1 - wheelK) * Math.PI) : 0;
+  mouseWheel.position.z = 0.16 + S.wheelDir * 0.022 * wheelEase; mouseWheel.position.y = 0.222 - 0.006 * wheelEase; mouseGroup.rotation.x = -S.wheelDir * 0.07 * wheelEase; mouseBtn.material.color.copy(BTN_INK).lerp(hitColor, wheelEase);
   S.rate *= Math.exp(-dt * 1.2); const fast = 0;   // 0 = unhurried typing, 1 = hammering away
   S.thump *= Math.exp(-dt * 13);
 
@@ -778,6 +781,8 @@ return {
   setCustomCoat(c) { applyCoat(c); },
   // The mouse is being moved somewhere on the system. No position is involved; the paw goes to the mouse and nudges it.
   mouseMoved() { const t = performance.now(); wake(t); S.lastMouse = t; S.wigX = clamp(S.wigX + rnd(-0.07, 0.07), -0.16, 0.16); S.wigZ = clamp(S.wigZ + rnd(-0.06, 0.06), -0.12, 0.12); },
+  // [7paws] the scroll wheel turned; roll the desk mouse and let the cat look over.
+  mouseWheel(dir) { const t = performance.now(); wake(t); S.lastMouse = t; S.wheelAt = t; S.wheelDir = Math.sign(dir) || 1; S.wigX = clamp(S.wigX + rnd(-0.02, 0.02), -0.16, 0.16); },
   clear() { wake(performance.now()); [...S.down.keys()].forEach(keyUp); shownKeys = new Set(); downAt.clear(); buttonsDown = 0; buttonsAt = 0; S.mouseDown = false; },
   state() { const t = performance.now(); return sleeping(t) ? 'sleeping' : S.pet || t < S.happyUntil ? 'petting' : t - S.lastKey < 3000 ? 'typing' : mouseGroup.visible && t - S.lastMouse < 2200 ? 'mouse' : 'idle'; },
   idleAction() { return S.act || ''; },

@@ -50,6 +50,7 @@ export type CatInput =
   | { kind: "mouseDown"; button: string }
   | { kind: "mouseUp"; button: string }
   | { kind: "mouseMoved"; nx: number; ny: number }
+  | { kind: "mouseWheel"; delta: number }
   | { kind: "privacyTap"; side: "Left" | "Right" };
 
 export type PawSide = "L" | "R";

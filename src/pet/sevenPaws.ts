@@ -11,6 +11,7 @@ interface RefCatApi {
   setOptions(options: Record<string, unknown>): void;
   setCustomCoat(coat: CoatPalette): void;
   mouseMoved(): void;
+  mouseWheel(delta: number): void;
   clear(): void;
   state(): string;
   idleAction(): string;
@@ -123,6 +124,9 @@ export class SevenPawsPet {
       case "mouseUp":
         this.buttons.delete(ev.button);
         this.api.setInput(this.keys, this.buttons);
+        break;
+      case "mouseWheel":
+        if (ev.delta) this.api.mouseWheel(ev.delta);
         break;
       case "mouseMoved": {
         const now = performance.now();
