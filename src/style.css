@@ -88,8 +88,9 @@ body.settings-body .menu {
   position: fixed;
   top: 0;
   bottom: 0;
-  left: calc(50% - 122px);
-  width: 244px;
+  left: 0;
+  right: 0;
+  width: auto;
   max-width: none;
   max-height: none;
   box-shadow: none;
@@ -724,6 +725,21 @@ body.settings-body .menu-head {
 
 .mcp-hint {
   margin-top: 6px;
+}
+
+.menu-hint.success {
+  color: #3f7d4c;
+  opacity: 1;
+}
+
+.menu-hint.error {
+  color: #b34a3c;
+  opacity: 1;
+}
+
+.btn:disabled {
+  cursor: wait;
+  opacity: 0.55;
 }
 
 .menu-refresh {

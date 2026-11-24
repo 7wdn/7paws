@@ -107,6 +107,45 @@ jobs:
             src-tauri/target/${{ matrix.target }}/release/bundle/portable/*.zip
           if-no-files-found: error
 
+  build-windows-7:
+    needs: verify
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target-win7
+          key: win7-x64
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Build Windows 7 compatibility executable
+        run: cargo build --release --locked --features win7 --target-dir target-win7
+        working-directory: src-tauri
+
+      - name: Verify and package Windows 7 portable
+        shell: pwsh
+        run: ./scripts/package-win7.ps1
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-win7-bundle
+          path: src-tauri/target-win7/release/bundle/portable/*-win7-x64-portable.zip
+          if-no-files-found: error
+
   build-macos:
     needs: verify
     strategy:
@@ -173,7 +212,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [build-windows, build-macos]
+    needs: [build-windows, build-windows-7, build-macos]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -203,7 +242,8 @@ jobs:
           ls -l release
           test "$(find release -name '*-setup.exe' | wc -l)" -eq 2
           test "$(find release -name '*.dmg' | wc -l)" -eq 2
-          test "$(find release -name '*-portable.zip' | wc -l)" -eq 2
+          test "$(find release -name '*-portable.zip' | wc -l)" -eq 3
+          test "$(find release -name '*-win7-x64-portable.zip' | wc -l)" -eq 1
 
       - name: Create checksums
         shell: bash

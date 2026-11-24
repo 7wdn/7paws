@@ -73,6 +73,7 @@
 | Windows ARM64 | `*-arm64-setup.exe` | Windows ARM64；安装器为 x86，应用为原生 ARM64 |
 | Windows x64 便携版 | `*-x64-portable.zip` | 解压后双击运行，无需安装；需要系统已安装 WebView2 Runtime |
 | Windows ARM64 便携版 | `*-arm64-portable.zip` | 同上 |
+| Windows 7 SP1 x64 兼容便携版 | `*-win7-x64-portable.zip` | 非官方兼容构建；内置 WebView2 109 固定运行时，解压后本地运行 |
 | macOS Intel | `*-x64.dmg` | Intel Mac |
 | macOS Apple Silicon | `*-aarch64.dmg` | Apple Silicon |
 
@@ -115,7 +116,8 @@ tccutil reset All com.qoder.7paws
 - 如果提示 **Could not find the WebView2 Runtime**，常见于 Windows 10 LTSC、精简版或移除了 Edge 的系统。可安装微软官方的 [Evergreen Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)，安装后重新打开 7paws。离线环境请先在有网络的机器下载安装程序，再拷贝到目标机器。
 - 未签名安装包可能显示「未知发布者」；确认文件来自本仓库的 Releases 后，可以选择「更多信息 → 仍要运行」。
 - Windows ARM64 版需要 ARM64 WebView2 Runtime，安装包会自动尝试安装。
-- Windows 7/8 不支持。7paws 使用 Tauri 2 与当前 Rust 工具链构建。
+- Windows 便携版可在设置页创建桌面快捷方式；快捷方式指向当前 `7paws.exe`，不会复制文件或运行时。
+- Windows 7 SP1 x64 请使用独立的 `*-win7-x64-portable.zip`。该包内置 WebView2 109 固定运行时，并使用原生分层窗口呈现 3D 小猫；设置窗口使用不透明背景。它属于非官方旧系统兼容构建，Windows 7 与 Runtime 109 均已停止安全维护，不能视为安全支持。Windows 8 暂不提供兼容包。
 
 ## 使用
 
@@ -257,6 +259,10 @@ pnpm tauri build --target aarch64-apple-darwin
 
 # Windows ARM64（在 Windows 上交叉编译）
 pnpm tauri build --target aarch64-pc-windows-msvc --bundles nsis
+
+# Windows 7 SP1 x64 兼容构建（独立 target-win7，不改正常包）
+pnpm tauri:win7
+pnpm verify:win7
 ```
 
 macOS 安装包必须在 macOS 上构建，Tauri 不支持从 Windows 交叉编译。按架构构建的产物位于 `src-tauri/target/<target>/release/bundle/`。
@@ -304,8 +310,8 @@ pnpm dev
 
 ## 当前范围
 
-- 支持 Windows 10/11 x64 与 ARM64，macOS 10.15+ Intel 与 Apple Silicon。
-- 不支持 Windows 7/8；Linux 暂未支持，后续版本优先考虑 X11 会话。
+- 正式支持 Windows 10/11 x64 与 ARM64，macOS 10.15+ Intel 与 Apple Silicon。
+- Windows 7 SP1 x64 提供非官方兼容便携版；Windows 8 与 Linux 暂未支持，后续版本优先考虑 X11 会话。
 - macOS 以菜单栏图标驻留，不显示 Dock 图标。
 - 发布包目前未签名；macOS 26/27 上如果权限无法保持，需要 Developer ID 签名与公证。
 - 104 布局按标准全键盘排列，包含 F 区、导航区、方向键和小键盘。

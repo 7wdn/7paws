@@ -4,16 +4,17 @@ const stageEl = host, hintEl = document.createElement('div');
 // The look-development page had on-page controls; here they are detached stand-ins so the shared drawing code stays identical.
 const stubs = {}, $ = id => stubs[id] || (stubs[id] = document.createElement(id.startsWith('btn') ? 'button' : 'div'));
 const offs = [], on = (type, fn, opt) => { window.addEventListener(type, fn, opt); offs.push(() => window.removeEventListener(type, fn, opt)); };
-let dead = false, raf = 0, followKeys = false, showKeyLabels = true, idleActions = options.idleActions !== false, lastStrikeAt = -1e9, idleTick = 0;
+let dead = false, raf = 0, followKeys = false, showKeyLabels = true, idleActions = options.idleActions !== false, lastStrikeAt = -1e9, idleTick = 0, afterRender = null;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), mix = (a, b, t) => a + (b - a) * t, rnd = (a, b) => a + Math.random() * (b - a);
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
 let renderer;
-try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); }
-catch (e) { return null; }
-renderer.setPixelRatio(Math.min(1.5, devicePixelRatio || 1));   // [7paws] cap DPR: 2x framebuffers cost far more memory than they show
+try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: !!options.win7Capture }); }
+catch (e) { if (options.onError) options.onError(String(e)); return null; }
+renderer.setPixelRatio(options.pixelRatio > 0 ? options.pixelRatio : Math.min(1.5, devicePixelRatio || 1));   // [7paws] cap DPR: 2x framebuffers cost far more memory than they show
 stageEl.appendChild(renderer.domElement);
+renderer.domElement.addEventListener('webglcontextlost', event => { event.preventDefault(); if (options.onError) options.onError('WebGL context lost'); });
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(29, 1, 0.1, 100);
 const CAM = V(0, 5.0, 10.2), LOOK = V(0, 1.35, 0.45);
@@ -495,6 +496,9 @@ function runDemo(t) {
 
 /* ---------- frame ---------- */
 const shoulderW = V(0, 0, 0), proj = V(0, 0, 0), tmpGoal = V(0, 0, 0);
+let renderTimer = 0, debugTicks = 0;
+const manualRender = !!options.manualRender;
+const scheduleFrame = () => { if (!manualRender) raf = requestAnimationFrame(frame); };
 function frame() {
   const t = performance.now(), realDt = Math.min(1, (t - S.last) / 1000), dt = Math.min(0.05, realDt); S.last = t;
   const ease = k => 1 - Math.exp(-dt * k);
@@ -510,8 +514,8 @@ function frame() {
   S.thump *= Math.exp(-dt * 13);
 
   if (dead) return;
-  { const now = performance.now(); if (now - Math.max(S.lastKey, S.lastMouse, S.wokeAt || 0) > 2500 && !S.pet && now >= S.happyUntil && (idleTick = (idleTick + 1) % (asleep ? 4 : 2))) { raf = requestAnimationFrame(frame); return; } }   // [7paws] idle: half rate; asleep: quarter rate
-  const w = stageEl.clientWidth, h = stageEl.clientHeight; if (!w || !h) { raf = requestAnimationFrame(frame); return; }
+  { const now = performance.now(); if (now - Math.max(S.lastKey, S.lastMouse, S.wokeAt || 0) > 2500 && !S.pet && now >= S.happyUntil && (idleTick = (idleTick + 1) % (asleep ? 4 : 2))) { scheduleFrame(); return; } }   // [7paws] idle: half rate; asleep: quarter rate
+  const w = stageEl.clientWidth, h = stageEl.clientHeight; if (!w || !h) { scheduleFrame(); return; }
   zzz.style.fontSize = (w * 0.063) + 'px';
   if (renderer.domElement.width !== Math.round(w * renderer.getPixelRatio()) || renderer.domElement.height !== Math.round(h * renderer.getPixelRatio())) { renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = w / h < 1 ? 38 : 31; camera.updateProjectionMatrix(); }
   if (VIEW.has('a')) S.spin = +VIEW.get('a');
@@ -619,12 +623,14 @@ function frame() {
   if (asleep) { head.getWorldPosition(proj); proj.x += 0.5; proj.y += 0.5; proj.project(camera); zzz.style.left = ((proj.x + 1) / 2 * w) + 'px'; zzz.style.top = ((1 - proj.y) / 2 * h) + 'px'; }
   S.chips = S.chips.filter(c => { const out = c.gone ? (t - c.gone) / 240 : 0; if (out >= 1) { c.el.remove(); return false; }
     proj.set(c.k.x, 0.75, c.k.z).project(camera); c.el.style.left = ((proj.x + 1) / 2 * w) + 'px'; c.el.style.top = ((1 - proj.y) / 2 * h - out * 8) + 'px'; c.el.style.opacity = String(Math.min(1, (t - c.born) / 80) * (1 - out)); return true; });
-  raf = requestAnimationFrame(frame);
+  // [7paws] Win7 capture must run before the WebGL drawing buffer is cleared.
+  if (afterRender) afterRender();
+  scheduleFrame();
 }
 // A coat is named by its id; an unknown id falls back to the first coat.
 const coatIndex = id => Math.max(0, COATS.findIndex(c => c.id === id));
 setCoat(coatIndex(options.coat)); applyShape();
-raf = requestAnimationFrame(frame);
+if (manualRender) renderTimer = setInterval(() => { if (debugTicks < 3 && options.onDebug) { debugTicks++; options.onDebug('render:timer'); } frame(); }, 33); else scheduleFrame();
 
 /* ---------- what the app can ask of the cat ---------- */
 // A press whose key is not being shown (privacy mode, or a key off the little keyboard) still gets a paw tap, with no key attached.
@@ -637,8 +643,80 @@ const HOLD_MAX = 1400, downAt = new Map();
 const letGo = setInterval(() => { const t = performance.now();
   for (const [code, at] of downAt) if (t - at > HOLD_MAX) { keyUp(code); downAt.delete(code); }
   if (S.mouseDown && buttonsAt && t - buttonsAt > HOLD_MAX) S.mouseDown = false; }, 200);
+let captureCanvas = null;
+const roundedRectPath = (ctx, x, y, w, h, r) => {
+  const radius = Math.max(0, Math.min(r, w / 2, h / 2));
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + w - radius, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+  ctx.lineTo(x + w, y + h - radius);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+  ctx.lineTo(x + radius, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+};
+const captureDomText = (ctx, el, stageRect, scaleX, scaleY, opacity) => {
+  const style = getComputedStyle(el), rect = el.getBoundingClientRect();
+  if (style.display === 'none' || style.visibility === 'hidden' || rect.width <= 0 || rect.height <= 0) return;
+  const alpha = parseFloat(style.opacity);
+  ctx.save();
+  ctx.globalAlpha = opacity * (Number.isFinite(alpha) ? alpha : 1);
+  ctx.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const x = (rect.left - stageRect.left + rect.width / 2) * scaleX;
+  const y = (rect.top - stageRect.top + rect.height / 2) * scaleY;
+  if (el.classList.contains('chip')) {
+    const left = (rect.left - stageRect.left) * scaleX, top = (rect.top - stageRect.top) * scaleY;
+    const width = rect.width * scaleX, height = rect.height * scaleY;
+    const radius = Math.min(parseFloat(style.borderTopLeftRadius) || 7, rect.height / 2) * scaleX;
+    ctx.shadowColor = 'rgba(0,0,0,0.14)';
+    ctx.shadowBlur = 8 * scaleY;
+    ctx.shadowOffsetY = 3 * scaleY;
+    roundedRectPath(ctx, left, top, width, height, radius);
+    ctx.fillStyle = style.backgroundColor;
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.lineWidth = Math.max(1, parseFloat(style.borderTopWidth) || 1) * scaleX;
+    ctx.strokeStyle = style.borderTopColor;
+    ctx.stroke();
+  } else {
+    ctx.shadowColor = 'rgba(30,24,10,0.22)';
+    ctx.shadowBlur = 2 * scaleY;
+    ctx.shadowOffsetY = 2 * scaleY;
+  }
+  ctx.fillStyle = style.color;
+  ctx.fillText(el.textContent || '', x, y, rect.width * scaleX * 0.95);
+  ctx.restore();
+};
+const renderCaptureFrame = opacity => {
+  const source = renderer.domElement, width = source.width, height = source.height;
+  const stageRect = stageEl.getBoundingClientRect();
+  if (width < 8 || height < 8 || stageRect.width <= 0 || stageRect.height <= 0) return null;
+  if (!captureCanvas) captureCanvas = document.createElement('canvas');
+  if (captureCanvas.width !== width || captureCanvas.height !== height) {
+    captureCanvas.width = width;
+    captureCanvas.height = height;
+  }
+  const ctx = captureCanvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  const scaleX = width / stageRect.width, scaleY = height / stageRect.height;
+  ctx.clearRect(0, 0, width, height);
+  ctx.globalAlpha = clamp(opacity, 0, 1);
+  ctx.drawImage(source, 0, 0, width, height);
+  if (getComputedStyle(zzz).display !== 'none') {
+    for (const span of zzz.querySelectorAll('span')) captureDomText(ctx, span, stageRect, scaleX, scaleY, opacity);
+  }
+  for (const chip of S.chips) captureDomText(ctx, chip.el, stageRect, scaleX, scaleY, opacity);
+  return ctx.getImageData(0, 0, width, height);
+};
 return {
   coats: COATS.map(c => c.id),
+  setAfterRender(callback) { afterRender = callback; },
+  captureFrame(opacity) { return renderCaptureFrame(opacity); },
   headSideAt(clientX, clientY) {
     return onHeadAt({ target: stageEl, clientX, clientY });
   },
@@ -700,6 +778,6 @@ return {
   state() { const t = performance.now(); return sleeping(t) ? 'sleeping' : S.pet || t < S.happyUntil ? 'petting' : t - S.lastKey < 3000 ? 'typing' : mouseGroup.visible && t - S.lastMouse < 2200 ? 'mouse' : 'idle'; },
   idleAction() { return S.act || ''; },
   fastForwardToSleep() { S.sleepAt = performance.now(); S.lastKey = S.lastMouse = -1e9; },
-  destroy() { dead = true; clearInterval(letGo); cancelAnimationFrame(raf); offs.forEach(f => f()); S.chips.forEach(c => c.el.remove()); zzz.remove(); renderer.domElement.remove(); renderer.dispose(); },
+  destroy() { dead = true; afterRender = null; clearInterval(letGo); clearInterval(renderTimer); cancelAnimationFrame(raf); offs.forEach(f => f()); S.chips.forEach(c => c.el.remove()); zzz.remove(); renderer.domElement.remove(); renderer.dispose(); },
 };
 };
