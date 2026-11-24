@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import type { AppSettings, CatInput, CustomCat, PawSide } from "../types";
 import { catAudio } from "../audio";
 import { buildCoatPalette, type CoatPalette } from "./catPalette";
@@ -19,6 +20,8 @@ interface RefCatApi {
   setMouseActive(): void;
   nudgeMouse(dx: number, dy: number): void;
   setLayout(layout: string): void;
+  setAfterRender(callback: (() => void) | null): void;
+  captureFrame(opacity: number): ImageData | null;
   destroy(): void;
 }
 
@@ -26,7 +29,7 @@ declare global {
   interface Window {
     createCat?: (
       host: HTMLElement,
-      options?: { coat?: string; sleepMinutes?: number; idleActions?: boolean },
+      options?: { coat?: string; sleepMinutes?: number; idleActions?: boolean; pixelRatio?: number; win7Capture?: boolean; manualRender?: boolean; onError?: (message: string) => void; onDebug?: (message: string) => void },
     ) => RefCatApi | null;
   }
 }
@@ -48,18 +51,30 @@ export class SevenPawsPet {
   private rawY = 0.5;
   private hasRaw = false;
   private regionsKey = "";
+  private readonly win7Mode: boolean;
+  private frameBusy = false;
+  private lastFrameAt = 0;
+  private debugCaptureLogged = false;
+  private debugErrorLogged = false;
 
   constructor(
     host: HTMLElement,
     settings: AppSettings,
     cats: CustomCat[],
     onRegions: (regions: Region[]) => void,
+    win7Mode = false,
   ) {
+    this.win7Mode = win7Mode;
     if (!window.createCat) throw new Error("Reference cat renderer is missing");
     const api = window.createCat(host, {
       coat: settings.coat,
       sleepMinutes: settings.sleepMinutes,
       idleActions: settings.idleActions,
+      pixelRatio: win7Mode ? Math.max(1, window.devicePixelRatio || 1) : undefined,
+      win7Capture: win7Mode,
+      manualRender: win7Mode,
+      onError: win7Mode ? (message) => this.logDebug(`webgl:${message}`) : undefined,
+      onDebug: win7Mode ? (message) => this.logDebug(message) : undefined,
     });
     if (!api) throw new Error("Reference cat renderer failed to start");
     this.api = api;
@@ -73,6 +88,7 @@ export class SevenPawsPet {
     this.applyOptions(settings);
     this.api.setLayout(this.layout);
     this.clearInput();
+    if (this.win7Mode) this.api.setAfterRender(() => this.presentFrame());
 
     this.purrTimer = window.setInterval(() => {
       const state = this.api.state();
@@ -204,8 +220,46 @@ export class SevenPawsPet {
   }
 
   destroy() {
+    this.api.setAfterRender(null);
     window.clearInterval(this.purrTimer);
     this.api.destroy();
+  }
+
+  private presentFrame() {
+    if (!this.win7Mode || this.frameBusy) return;
+    const now = performance.now();
+    if (now - this.lastFrameAt < 33) return;
+    try {
+      const frame = this.api.captureFrame(this.settings.opacity);
+      if (!frame) return;
+      if (!this.debugCaptureLogged) {
+        this.debugCaptureLogged = true;
+        this.logDebug(`capture:first size=${frame.width}x${frame.height}`);
+      }
+      const payload = new Uint8Array(
+        frame.data.buffer,
+        frame.data.byteOffset,
+        frame.data.byteLength,
+      );
+      this.lastFrameAt = now;
+      this.frameBusy = true;
+      void invoke("win7_present_frame", payload, {
+        headers: { "x-w": String(frame.width), "x-h": String(frame.height) },
+      }).catch(() => undefined).finally(() => {
+        this.frameBusy = false;
+      });
+    } catch (error) {
+      this.frameBusy = false;
+      if (!this.debugErrorLogged) {
+        this.debugErrorLogged = true;
+        this.logDebug(`capture:error ${String(error)}`);
+      }
+    }
+  }
+
+  private logDebug(message: string) {
+    if (!this.win7Mode) return;
+    void invoke("win7_debug_log", { message }).catch(() => undefined);
   }
 
   private applyOptions(settings: AppSettings) {

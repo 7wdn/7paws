@@ -7,7 +7,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
+#[cfg(target_os = "macos")]
+use tauri::Manager;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -224,12 +226,10 @@ pub fn start_global_hooks(app: AppHandle, settings: Arc<Mutex<AppSettings>>) {
 
 #[cfg(windows)]
 fn normalize_window_point(app: &AppHandle, x: i32, y: i32) -> (f64, f64) {
-    if let Some(win) = app.get_webview_window("main") {
-        if let (Ok(pos), Ok(size)) = (win.outer_position(), win.outer_size()) {
-            let w = size.width.max(1) as f64;
-            let h = size.height.max(1) as f64;
-            return ((x - pos.x) as f64 / w, (y - pos.y) as f64 / h);
-        }
+    if let Some((px, py, width, height)) = crate::main_window_rect(app) {
+        let w = width.max(1) as f64;
+        let h = height.max(1) as f64;
+        return ((x - px) as f64 / w, (y - py) as f64 / h);
     }
     (0.5, 0.5)
 }

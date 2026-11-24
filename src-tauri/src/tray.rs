@@ -6,26 +6,18 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{AppHandle, Emitter, Listener, Manager};
 
 fn toggle_window(app: &AppHandle) -> bool {
-    let Some(win) = app.get_webview_window("main") else {
-        return false;
-    };
-    if win.is_visible().unwrap_or(true) {
-        let _ = win.hide();
+    let visible = !crate::main_window_is_visible(app);
+    crate::set_main_window_visible(app, visible);
+    if !visible {
         if let Some(settings) = app.get_webview_window("settings") {
             let _ = settings.hide();
         }
-        false
-    } else {
-        let _ = win.show();
-        true
     }
+    visible
 }
 
 pub fn setup_tray(app: &AppHandle, settings: Arc<Mutex<AppSettings>>) -> tauri::Result<()> {
-    let initial_visible = app
-        .get_webview_window("main")
-        .map(|win| win.is_visible().unwrap_or(true))
-        .unwrap_or(true);
+    let initial_visible = crate::main_window_is_visible(app);
     let show_pet = CheckMenuItem::with_id(
         app,
         "toggle_show",

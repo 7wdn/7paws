@@ -7,6 +7,7 @@ import { defaultSettings } from "./defaults";
 import type { AppSettings, CatPattern, CatSpot, CustomCat } from "./types";
 
 const isTauri = "__TAURI_INTERNALS__" in window || "__TAURI__" in window;
+const isWindows = /Windows/i.test(navigator.userAgent);
 
 const menuEl = document.getElementById("menu") as HTMLDivElement;
 const coatsEl = document.getElementById("coats") as HTMLDivElement;
@@ -37,6 +38,9 @@ const githubBtn = document.getElementById("githubBtn") as HTMLButtonElement;
 const appVersionEl = document.getElementById("appVersion") as HTMLSpanElement;
 const resetBtn = document.getElementById("resetPosBtn") as HTMLButtonElement;
 const quitBtn = document.getElementById("quitBtn") as HTMLButtonElement;
+const shortcutSection = document.getElementById("shortcutSection") as HTMLDivElement;
+const createShortcutBtn = document.getElementById("createShortcutBtn") as HTMLButtonElement;
+const shortcutHint = document.getElementById("shortcutHint") as HTMLDivElement;
 const closeBtn = document.getElementById("closeBtn") as HTMLButtonElement;
 const headEl = menuEl.querySelector<HTMLElement>(".menu-head");
 const customCoatEl = document.getElementById("customCoat") as HTMLDivElement;
@@ -951,6 +955,23 @@ function bindControls() {
 
   updateBtn.addEventListener("click", () => void checkForUpdates());
 
+  createShortcutBtn.addEventListener("click", async () => {
+    createShortcutBtn.disabled = true;
+    shortcutHint.className = "menu-hint mcp-hint";
+    shortcutHint.textContent = "正在创建…";
+    try {
+      const message = await invoke<string>("create_desktop_shortcut");
+      shortcutHint.className = "menu-hint mcp-hint success";
+      shortcutHint.textContent = message;
+    } catch (error) {
+      shortcutHint.className = "menu-hint mcp-hint error";
+      shortcutHint.textContent = String(error);
+    } finally {
+      createShortcutBtn.disabled = false;
+      updateMenuScroll();
+    }
+  });
+
   updateGoBtn.addEventListener("click", () => {
     closeUpdatePopup();
     if (isTauri) {
@@ -1065,6 +1086,7 @@ function bindControls() {
 }
 
 async function boot() {
+  shortcutSection.hidden = !(isTauri && isWindows);
   buildCoatButtons();
   bindControls();
   await refresh();
