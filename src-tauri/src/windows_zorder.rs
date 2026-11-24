@@ -1,7 +1,9 @@
 #![cfg(windows)]
 
 use crate::AppSettings;
+#[cfg(not(debug_assertions))]
 use std::ffi::OsStr;
+#[cfg(not(debug_assertions))]
 use std::os::windows::ffi::OsStrExt;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -186,10 +188,12 @@ fn settings_window_open(app: &AppHandle) -> bool {
         .unwrap_or(false)
 }
 
+#[cfg(not(debug_assertions))]
 fn wide(value: &OsStr) -> Vec<u16> {
     value.encode_wide().chain(Some(0)).collect()
 }
 
+#[cfg(not(debug_assertions))]
 #[link(name = "shell32")]
 extern "system" {
     fn ShellExecuteW(
@@ -217,6 +221,12 @@ pub fn wait_for_process_exit(process_id: u32) -> bool {
     }
 }
 
+#[cfg(debug_assertions)]
+pub fn restart_as_admin(_app: AppHandle) -> Result<String, String> {
+    Err("开发模式不支持管理员重启，请使用 Windows 发布包验证".to_string())
+}
+
+#[cfg(not(debug_assertions))]
 pub fn restart_as_admin(app: AppHandle) -> Result<String, String> {
     let exe = std::env::current_exe().map_err(|error| error.to_string())?;
     let process_id = std::process::id();
