@@ -42,6 +42,9 @@ export interface AppSettings {
   keyboardLayout: "65" | "104";
   showTrayIcon: boolean;
   mcpEnabled: boolean;
+  reminderEnabled: boolean;
+  reminderText: string;
+  reminderIntervalMinutes: number;
 }
 
 export type CatInput =

@@ -20,4 +20,7 @@ export const defaultSettings: AppSettings = {
   keyboardLayout: "65",
   showTrayIcon: true,
   mcpEnabled: true,
+  reminderEnabled: false,
+  reminderText: "",
+  reminderIntervalMinutes: 30,
 };

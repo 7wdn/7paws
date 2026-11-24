@@ -30,6 +30,9 @@ const purrPetInput = document.getElementById("purrPet") as HTMLInputElement;
 const purrSleepInput = document.getElementById("purrSleep") as HTMLInputElement;
 const idleActionsInput = document.getElementById("idleActions") as HTMLInputElement;
 const labelsInput = document.getElementById("showKeyLabels") as HTMLInputElement;
+const reminderEnabledInput = document.getElementById("reminderEnabled") as HTMLInputElement;
+const reminderTextInput = document.getElementById("reminderText") as HTMLInputElement;
+const reminderIntervalInput = document.getElementById("reminderInterval") as HTMLInputElement;
 const mcpEnabledInput = document.getElementById("mcpEnabled") as HTMLInputElement;
 const mcpClientSelect = document.getElementById("mcpClientSelect") as HTMLButtonElement;
 const mcpClientLabel = mcpClientSelect.querySelector(".dropdown-label") as HTMLSpanElement;
@@ -698,6 +701,11 @@ function syncControls() {
   purrSleepInput.checked = settings.purrSleep;
   idleActionsInput.checked = settings.idleActions;
   labelsInput.checked = settings.showKeyLabels;
+  reminderEnabledInput.checked = settings.reminderEnabled;
+  if (document.activeElement !== reminderTextInput) reminderTextInput.value = settings.reminderText;
+  if (document.activeElement !== reminderIntervalInput) {
+    reminderIntervalInput.value = String(settings.reminderIntervalMinutes);
+  }
   mcpEnabledInput.checked = settings.mcpEnabled;
   syncMcpClient();
   syncCoatGrid();
@@ -948,6 +956,19 @@ function bindControls() {
   });
   labelsInput.addEventListener("change", () => {
     void saveSettings({ showKeyLabels: labelsInput.checked });
+  });
+
+  reminderEnabledInput.addEventListener("change", () => {
+    void saveSettings({ reminderEnabled: reminderEnabledInput.checked });
+  });
+  reminderTextInput.addEventListener("change", () => {
+    void saveSettings({ reminderText: reminderTextInput.value });
+  });
+  reminderIntervalInput.addEventListener("change", () => {
+    const minutes = Math.floor(Number(reminderIntervalInput.value));
+    void saveSettings({
+      reminderIntervalMinutes: Number.isFinite(minutes) && minutes > 0 ? minutes : 1,
+    });
   });
 
   mcpEnabledInput.addEventListener("change", () => {

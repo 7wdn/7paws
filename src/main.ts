@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { SevenPawsPet } from "./pet/sevenPaws.ts";
 import { COATS } from "./pet/coats";
+import { ReminderController } from "./reminder.ts";
 import { defaultSettings } from "./defaults";
 import type { AppSettings, CatInput, CustomCat } from "./types";
 
@@ -16,6 +17,15 @@ let settings: AppSettings = { ...defaultSettings };
 let customCats: CustomCat[] = [];
 let scene: SevenPawsPet;
 let win7Mode = false;
+const reminder = new ReminderController();
+let lastReminderKey = "";
+
+function syncReminder() {
+  const key = `${settings.reminderEnabled}|${settings.reminderText}|${settings.reminderIntervalMinutes}`;
+  if (key === lastReminderKey) return;
+  lastReminderKey = key;
+  reminder.configure(settings.reminderEnabled, settings.reminderText, settings.reminderIntervalMinutes);
+}
 
 function bindPointer() {
   const canvas = stage.querySelector("canvas");
@@ -128,6 +138,7 @@ async function boot() {
 
   bindPointer();
   listenGlobalKeysForDev();
+  syncReminder();
 
   document.addEventListener("contextmenu", (event) => {
     event.preventDefault();
@@ -161,6 +172,7 @@ async function boot() {
     await listen<AppSettings>("cat-settings", (ev) => {
       settings = ev.payload;
       scene.applySettings(settings, customCats);
+      syncReminder();
     });
     await listen<CustomCat[]>("cat-cats", (ev) => {
       customCats = ev.payload;

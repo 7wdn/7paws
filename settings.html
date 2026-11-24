@@ -152,6 +152,37 @@
           </label>
         </div>
 
+        <div class="menu-section">
+          <div class="menu-label">
+            <span>定时提醒</span>
+          </div>
+          <label class="toggle-row" for="reminderEnabled">
+            <span>开启语音提醒</span>
+            <input id="reminderEnabled" type="checkbox" />
+          </label>
+          <div class="field">
+            <label class="field-label" for="reminderText">提醒内容</label>
+            <input
+              id="reminderText"
+              class="text-input"
+              type="text"
+              placeholder="例如：该喝水了"
+              maxlength="120"
+            />
+          </div>
+          <div class="field">
+            <label class="field-label" for="reminderInterval">间隔（分钟）</label>
+            <input
+              id="reminderInterval"
+              class="number-input"
+              type="number"
+              min="1"
+              max="1440"
+              step="1"
+            />
+          </div>
+        </div>
+
         <div id="shortcutSection" class="menu-section" hidden>
           <div class="menu-label">便携版</div>
           <button id="createShortcutBtn" class="btn ghost photo-btn" type="button">创建桌面快捷方式</button>

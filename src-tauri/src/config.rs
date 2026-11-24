@@ -29,6 +29,9 @@ pub struct AppSettings {
     pub keyboard_layout: String,
     pub show_tray_icon: bool,
     pub mcp_enabled: bool,
+    pub reminder_enabled: bool,
+    pub reminder_text: String,
+    pub reminder_interval_minutes: u32,
 }
 
 impl Default for AppSettings {
@@ -53,6 +56,9 @@ impl Default for AppSettings {
             keyboard_layout: "65".to_string(),
             show_tray_icon: true,
             mcp_enabled: true,
+            reminder_enabled: false,
+            reminder_text: String::new(),
+            reminder_interval_minutes: 30,
         }
     }
 }
@@ -74,6 +80,7 @@ impl AppSettings {
         self.scale = self.scale.clamp(MIN_SCALE, MAX_SCALE);
         self.opacity = self.opacity.clamp(0.1, 1.0);
         self.sleep_minutes = self.sleep_minutes.min(120);
+        self.reminder_interval_minutes = self.reminder_interval_minutes.clamp(1, 1440);
         // Custom coat ids are validated against cats.json by the app; here only the shape is checked.
         if !COATS.contains(&self.coat.as_str()) && !is_slug(&self.coat) {
             self.coat = "tuxedo".to_string();

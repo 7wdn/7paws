@@ -447,6 +447,9 @@ fn update_settings(
     s.show_tray_icon = patch.show_tray_icon;
     s.mcp_enabled = patch.mcp_enabled;
     s.run_as_admin = patch.run_as_admin;
+    s.reminder_enabled = patch.reminder_enabled;
+    s.reminder_text = patch.reminder_text;
+    s.reminder_interval_minutes = patch.reminder_interval_minutes;
 
     if prev_autostart != s.autostart {
         let _ = set_autostart(s.autostart);
