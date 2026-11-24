@@ -5,15 +5,17 @@ use crate::AppSettings;
 use std::ffi::OsStr;
 #[cfg(not(debug_assertions))]
 use std::os::windows::ffi::OsStrExt;
+#[cfg(not(debug_assertions))]
+use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
 use windows_sys::Win32::Foundation::{CloseHandle, BOOL, HANDLE, HWND, LPARAM, RECT};
-use windows_sys::Win32::System::Threading::{
-    OpenProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE,
-};
+use windows_sys::Win32::System::Threading::{OpenProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE};
+#[cfg(not(debug_assertions))]
+use windows_sys::Win32::System::Threading::GetCurrentProcess;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetClassNameW, GetForegroundWindow, GetWindowLongPtrW, GetWindowRect, IsIconic,
     GWL_EXSTYLE, WS_EX_TOPMOST,
@@ -206,6 +208,84 @@ extern "system" {
     ) -> isize;
 }
 
+#[cfg(not(debug_assertions))]
+#[link(name = "advapi32")]
+extern "system" {
+    fn OpenProcessToken(process: HANDLE, access: u32, token: *mut HANDLE) -> BOOL;
+    fn GetTokenInformation(
+        token: HANDLE,
+        information_class: u32,
+        information: *mut std::ffi::c_void,
+        information_length: u32,
+        return_length: *mut u32,
+    ) -> BOOL;
+}
+
+#[cfg(not(debug_assertions))]
+fn is_elevated() -> bool {
+    #[repr(C)]
+    struct TokenElevation {
+        token_is_elevated: u32,
+    }
+    unsafe {
+        let mut token = std::ptr::null_mut();
+        if OpenProcessToken(GetCurrentProcess(), 0x0008, &mut token) == 0 || token.is_null() {
+            return false;
+        }
+        let mut elevation = TokenElevation {
+            token_is_elevated: 0,
+        };
+        let mut returned = 0u32;
+        let ok = GetTokenInformation(
+            token,
+            20,
+            (&mut elevation as *mut TokenElevation).cast(),
+            std::mem::size_of::<TokenElevation>() as u32,
+            &mut returned,
+        );
+        CloseHandle(token);
+        ok != 0 && elevation.token_is_elevated != 0
+    }
+}
+
+#[cfg(not(debug_assertions))]
+fn launch_elevated(exe: &Path, parameters: &str) -> bool {
+    let operation = wide(OsStr::new("runas"));
+    let file = wide(exe.as_os_str());
+    let parameters = wide(OsStr::new(parameters));
+    let directory = exe.parent().map(|parent| wide(parent.as_os_str()));
+    let directory = directory
+        .as_ref()
+        .map_or(std::ptr::null(), |value| value.as_ptr());
+    let result = unsafe {
+        ShellExecuteW(
+            std::ptr::null_mut(),
+            operation.as_ptr(),
+            file.as_ptr(),
+            parameters.as_ptr(),
+            directory,
+            1,
+        )
+    };
+    result > 32
+}
+
+#[cfg(debug_assertions)]
+pub fn request_elevated_startup(_enabled: bool) -> bool {
+    false
+}
+
+#[cfg(not(debug_assertions))]
+pub fn request_elevated_startup(enabled: bool) -> bool {
+    if !enabled || is_elevated() {
+        return false;
+    }
+    let Ok(exe) = std::env::current_exe() else {
+        return false;
+    };
+    launch_elevated(&exe, &format!("--wait-pid {}", std::process::id()))
+}
+
 pub fn wait_for_process_exit(process_id: u32) -> bool {
     if process_id == 0 {
         return false;
@@ -234,24 +314,7 @@ pub fn restart_as_admin(app: AppHandle) -> Result<String, String> {
         let _ = settings.hide();
     }
     std::thread::spawn(move || {
-        let operation = wide(OsStr::new("runas"));
-        let file = wide(exe.as_os_str());
-        let parameters = wide(OsStr::new(&format!("--wait-pid {process_id}")));
-        let directory = exe.parent().map(|parent| wide(parent.as_os_str()));
-        let directory = directory
-            .as_ref()
-            .map_or(std::ptr::null(), |value| value.as_ptr());
-        let result = unsafe {
-            ShellExecuteW(
-                std::ptr::null_mut(),
-                operation.as_ptr(),
-                file.as_ptr(),
-                parameters.as_ptr(),
-                directory,
-                1,
-            )
-        };
-        if result > 32 {
+        if launch_elevated(&exe, &format!("--wait-pid {process_id}")) {
             #[cfg(not(feature = "win7"))]
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.hide();

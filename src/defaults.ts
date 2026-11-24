@@ -10,6 +10,7 @@ export const defaultSettings: AppSettings = {
   purrPet: true,
   purrSleep: false,
   autostart: false,
+  runAsAdmin: false,
   privacyMode: false,
   leftMouse: false,
   coat: "tuxedo",

@@ -19,6 +19,7 @@ pub struct AppSettings {
     pub purr_pet: bool,
     pub purr_sleep: bool,
     pub autostart: bool,
+    pub run_as_admin: bool,
     pub privacy_mode: bool,
     pub left_mouse: bool,
     pub coat: String,
@@ -42,6 +43,7 @@ impl Default for AppSettings {
             purr_pet: true,
             purr_sleep: false,
             autostart: false,
+            run_as_admin: false,
             privacy_mode: false,
             left_mouse: false,
             coat: "tuxedo".to_string(),
@@ -213,6 +215,20 @@ pub fn set_autostart(enabled: bool) -> Result<(), String> {
         RegCloseKey(hkey);
         result
     }
+}
+
+#[cfg(windows)]
+pub fn is_portable_install() -> bool {
+    std::env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(|parent| parent.to_path_buf()))
+        .map(|dir| !dir.join("uninstall.exe").exists())
+        .unwrap_or(true)
+}
+
+#[cfg(not(windows))]
+pub fn is_portable_install() -> bool {
+    false
 }
 
 #[cfg(windows)]
