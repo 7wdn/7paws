@@ -41,6 +41,9 @@ const quitBtn = document.getElementById("quitBtn") as HTMLButtonElement;
 const shortcutSection = document.getElementById("shortcutSection") as HTMLDivElement;
 const createShortcutBtn = document.getElementById("createShortcutBtn") as HTMLButtonElement;
 const shortcutHint = document.getElementById("shortcutHint") as HTMLDivElement;
+const gameSection = document.getElementById("gameSection") as HTMLDivElement;
+const restartAdminBtn = document.getElementById("restartAdminBtn") as HTMLButtonElement;
+const gameHint = document.getElementById("gameHint") as HTMLDivElement;
 const closeBtn = document.getElementById("closeBtn") as HTMLButtonElement;
 const headEl = menuEl.querySelector<HTMLElement>(".menu-head");
 const customCoatEl = document.getElementById("customCoat") as HTMLDivElement;
@@ -972,6 +975,21 @@ function bindControls() {
     }
   });
 
+  restartAdminBtn.addEventListener("click", async () => {
+    restartAdminBtn.disabled = true;
+    gameHint.className = "menu-hint mcp-hint";
+    gameHint.textContent = "正在等待权限确认…";
+    try {
+      const message = await invoke<string>("restart_as_admin");
+      gameHint.className = "menu-hint mcp-hint success";
+      gameHint.textContent = message;
+    } catch (error) {
+      gameHint.className = "menu-hint mcp-hint error";
+      gameHint.textContent = String(error);
+      restartAdminBtn.disabled = false;
+    }
+  });
+
   updateGoBtn.addEventListener("click", () => {
     closeUpdatePopup();
     if (isTauri) {
@@ -1087,6 +1105,7 @@ function bindControls() {
 
 async function boot() {
   shortcutSection.hidden = !(isTauri && isWindows);
+  gameSection.hidden = !(isTauri && isWindows);
   buildCoatButtons();
   bindControls();
   await refresh();

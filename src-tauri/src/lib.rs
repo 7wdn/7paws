@@ -10,6 +10,8 @@ mod mcp;
 mod tray;
 #[cfg(all(windows, feature = "win7"))]
 mod win7;
+#[cfg(windows)]
+mod windows_zorder;
 
 use config::{
     config_path, load_settings, save_settings, set_autostart, try_load_settings, AppSettings,
@@ -1005,6 +1007,24 @@ pub fn run_mcp_stdio() {
     mcp::run_stdio();
 }
 
+#[cfg(windows)]
+pub fn wait_for_process_exit(process_id: u32) {
+    windows_zorder::wait_for_process_exit(process_id);
+}
+
+#[tauri::command]
+fn restart_as_admin(app: AppHandle) -> Result<String, String> {
+    #[cfg(windows)]
+    {
+        windows_zorder::restart_as_admin(app)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        Err("只有 Windows 支持以管理员身份重启".to_string())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(windows)]
@@ -1095,6 +1115,8 @@ pub fn run() {
 
             tray::setup_tray(&handle, settings_setup.clone())?;
             input_hook::start_global_hooks(handle.clone(), settings_setup.clone());
+            #[cfg(windows)]
+            windows_zorder::start_guard(handle.clone(), settings_setup.clone(), drag_setup.clone());
             start_hit_test_loop(
                 handle.clone(),
                 settings_setup.clone(),
@@ -1116,6 +1138,7 @@ pub fn run() {
             delete_custom_cat,
             get_mcp_command,
             create_desktop_shortcut,
+            restart_as_admin,
             open_project_page,
             open_release_page,
             set_dragging,

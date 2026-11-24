@@ -7,26 +7,27 @@ use std::io::Write;
 use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
-use windows_sys::Win32::Foundation::{GetLastError, HWND, LPARAM, LRESULT, POINT, RECT, SIZE, WPARAM};
+use windows_sys::Win32::Foundation::{
+    GetLastError, HWND, LPARAM, LRESULT, POINT, RECT, SIZE, WPARAM,
+};
 use windows_sys::Win32::Graphics::Gdi::{
-    AC_SRC_ALPHA, AC_SRC_OVER, BI_RGB, BITMAPINFO, BITMAPINFOHEADER, BLENDFUNCTION,
-    CreateCompatibleDC, CreateDIBSection, DIB_RGB_COLORS, DeleteDC, DeleteObject, GetDC,
-    GetMonitorInfoW, HDC, HGDIOBJ, HBITMAP, MONITORINFO, MONITOR_DEFAULTTONEAREST, MonitorFromWindow,
-    ReleaseDC, RGBQUAD, SelectObject,
+    CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, GetDC, GetMonitorInfoW,
+    MonitorFromWindow, ReleaseDC, SelectObject, AC_SRC_ALPHA, AC_SRC_OVER, BITMAPINFO,
+    BITMAPINFOHEADER, BI_RGB, BLENDFUNCTION, DIB_RGB_COLORS, HBITMAP, HDC, HGDIOBJ, MONITORINFO,
+    MONITOR_DEFAULTTONEAREST, RGBQUAD,
 };
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{ReleaseCapture, SetCapture};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetClientRect, GetMessageW,
-    GetWindowLongPtrW, GetWindowRect, IDC_ARROW, IDC_HAND, HTCLIENT, HTCAPTION, HWND_NOTOPMOST,
-    HWND_TOPMOST, LoadCursorW, MA_ACTIVATE, MA_NOACTIVATE, MSG, PostMessageW, PostQuitMessage,
-    RegisterClassExW, SendMessageW, SetCursor, SetWindowLongPtrW, SetWindowPos, ShowWindow,
-    SW_HIDE, SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_NOACTIVATE,
-    SW_SHOWNOACTIVATE, TranslateMessage, ULW_ALPHA, UpdateLayeredWindow, WM_APP, WM_CLOSE,
-    WM_DESTROY, WM_ENTERSIZEMOVE, WM_EXITSIZEMOVE, WM_LBUTTONDOWN, WM_LBUTTONUP,
-    WM_MOUSEACTIVATE, WM_MOUSEMOVE, WM_NCLBUTTONDOWN, WM_RBUTTONDOWN, WM_RBUTTONUP,
-    WM_SETCURSOR, WNDCLASSEXW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT,
-    WS_POPUP, GWL_EXSTYLE,
+    GetWindowLongPtrW, GetWindowRect, LoadCursorW, PostMessageW, PostQuitMessage, RegisterClassExW,
+    SendMessageW, SetCursor, SetWindowLongPtrW, SetWindowPos, ShowWindow, TranslateMessage,
+    UpdateLayeredWindow, GWL_EXSTYLE, HTCAPTION, HTCLIENT, HWND_NOTOPMOST, HWND_TOPMOST, IDC_ARROW,
+    IDC_HAND, MA_ACTIVATE, MA_NOACTIVATE, MSG, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE,
+    SWP_NOSIZE, SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE, ULW_ALPHA, WM_APP, WM_CLOSE, WM_DESTROY,
+    WM_ENTERSIZEMOVE, WM_EXITSIZEMOVE, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEACTIVATE,
+    WM_MOUSEMOVE, WM_NCLBUTTONDOWN, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SETCURSOR, WNDCLASSEXW,
+    WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
 };
 
 const WM_APP_PRESENT: u32 = WM_APP + 1;
@@ -37,6 +38,7 @@ const WM_APP_SET_TOPMOST: u32 = WM_APP + 5;
 const WM_APP_SET_CLICK_THROUGH: u32 = WM_APP + 6;
 const WM_APP_BEGIN_DRAG: u32 = WM_APP + 7;
 const WM_APP_SHUTDOWN: u32 = WM_APP + 8;
+const WM_APP_REASSERT_TOPMOST: u32 = WM_APP + 9;
 
 struct PendingFrame {
     width: u32,
@@ -470,6 +472,21 @@ unsafe extern "system" fn window_proc(
             persist_position(hwnd);
             0
         }
+        WM_APP_REASSERT_TOPMOST => {
+            if hub().visible.load(Ordering::Relaxed) && hub().always_on_top.load(Ordering::Relaxed)
+            {
+                SetWindowPos(
+                    hwnd,
+                    HWND_TOPMOST,
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                );
+            }
+            0
+        }
         WM_APP_SHUTDOWN => {
             DestroyWindow(hwnd);
             0
@@ -554,7 +571,9 @@ unsafe extern "system" fn window_proc(
 }
 
 pub fn init(app: AppHandle, x: i32, y: i32, width: u32, height: u32, always_on_top: bool) -> bool {
-    debug_log(format!("init:start pos={x},{y} size={width}x{height} top={always_on_top}"));
+    debug_log(format!(
+        "init:start pos={x},{y} size={width}x{height} top={always_on_top}"
+    ));
     *hub().app.lock().unwrap() = Some(app);
     hub().always_on_top.store(always_on_top, Ordering::Relaxed);
     if hwnd().is_some() {
@@ -638,7 +657,10 @@ pub fn submit_rgba_frame(width: u32, height: u32, rgba: &[u8]) {
         return;
     };
     if width == 0 || height == 0 || width > 4096 || height > 4096 || rgba.len() != expected {
-        debug_log(format!("submit:invalid size={width}x{height} bytes={}", rgba.len()));
+        debug_log(format!(
+            "submit:invalid size={width}x{height} bytes={}",
+            rgba.len()
+        ));
         return;
     }
     let count = SUBMITTED_FRAMES.fetch_add(1, Ordering::Relaxed) + 1;
@@ -700,7 +722,9 @@ pub fn get_rect() -> Option<(i32, i32, i32, i32)> {
 }
 
 pub fn is_visible() -> bool {
-    hwnd().is_some_and(|window| unsafe { windows_sys::Win32::UI::WindowsAndMessaging::IsWindowVisible(window) != 0 })
+    hwnd().is_some_and(|window| unsafe {
+        windows_sys::Win32::UI::WindowsAndMessaging::IsWindowVisible(window) != 0
+    })
 }
 
 pub fn set_visible(visible: bool) {
@@ -738,6 +762,18 @@ pub fn set_always_on_top(on_top: bool) {
     if let Some(window) = hwnd() {
         unsafe {
             PostMessageW(window, WM_APP_SET_TOPMOST, on_top as WPARAM, 0);
+        }
+    }
+}
+
+pub fn presenter_hwnd() -> Option<HWND> {
+    hwnd()
+}
+
+pub fn reassert_topmost() {
+    if let Some(window) = hwnd() {
+        unsafe {
+            PostMessageW(window, WM_APP_REASSERT_TOPMOST, 0, 0);
         }
     }
 }
@@ -803,8 +839,18 @@ pub fn set_window_position(win: &WebviewWindow, x: i32, y: i32) {
         if GetWindowRect(window, &mut rect) != 0 {
             let mut monitor_info = MONITORINFO {
                 cbSize: std::mem::size_of::<MONITORINFO>() as u32,
-                rcMonitor: RECT { left: 0, top: 0, right: 0, bottom: 0 },
-                rcWork: RECT { left: 0, top: 0, right: 0, bottom: 0 },
+                rcMonitor: RECT {
+                    left: 0,
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                },
+                rcWork: RECT {
+                    left: 0,
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                },
                 dwFlags: 0,
             };
             let monitor = MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST);
