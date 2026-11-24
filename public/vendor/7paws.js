@@ -197,8 +197,7 @@ const mouseBtn = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.02, 0.16), flat('
 const mouseWheel = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 0.09), flat('#f2b25c')); mouseWheel.position.set(0, 0.222, 0.16); mouseGroup.add(mouseWheel);
 
 /* ---------- the cat: one flowing body, an oval head, oval-ended legs, and a tail that grows out of the hip ---------- */
-const catRig = new THREE.Group(); scene.add(catRig);
-const cat = new THREE.Group(); cat.position.set(0, 0, 0.08); catRig.add(cat);
+const cat = new THREE.Group(); cat.position.set(0, 0, 0.08); scene.add(cat);
 const ball = (r, mat, sx = 1, sy = 1, sz = 1) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 40, 28), mat); m.scale.set(sx, sy, sz); return m; };
 const add = (parent, mesh, x, y, z) => { mesh.position.set(x, y, z); parent.add(mesh); return mesh; };
 const spline = pts => { const c = new THREE.SplineCurve(pts.map(([a, b]) => new THREE.Vector2(a, b))); const table = c.getPoints(120); return y => { let k = 0; while (k < table.length - 2 && table[k + 1].x < y) k++; const a = table[k], b = table[k + 1], f = clamp((y - a.x) / Math.max(1e-6, b.x - a.x), 0, 1); return a.y + (b.y - a.y) * f; }; };
@@ -218,7 +217,6 @@ function buildBody() {
   bodyMesh.geometry = new THREE.ParametricGeometry((u, v, out) => { const y = v * BODY_H, a = u * Math.PI * 2, close = Math.sqrt(1 - (1 - Math.min(1, y / 0.12)) ** 2), f = (1 + (NECK_W - 1) * smooth(1.15, 1.95, y)) * (1 + (SHOULDER_W - 1) * smooth(0.55, 1.4, y) * (1 - smooth(1.6, 2.25, y))) * (1 + 0.34 * smooth(1.72, 2.2, y)), g = 1 + (f / (1 + 0.34 * smooth(1.72, 2.2, y)) - 1) * 0.3; const top = 1 - 0.8 * smooth(2.17, 2.46, y);   /* the hidden top of the neck narrows to a point so it can never poke out of the head */ out.set(Math.cos(a) * halfW(y) * f * close * top, y, midZ(y) + 0.1 * (1 - top) + Math.sin(a) * halfD(y) * g * close * top); }, 56, 44);
 }
 const chest = add(torso, ball(1, M.patch, 0.3, 0.5, 0.16), 0, 1.22, 0.4);
-const belly = add(torso, ball(1, M.patch, 0.68, 0.82, 0.07), 0, 1.0, 0.57); belly.visible = false; belly.scale.setScalar(0);
 const hindFeet = [-1, 1].map(s => { const g = new THREE.Group(); g.position.set(s * 0.6, 0.1, 0.25); cat.add(g); const rim = add(g, ball(1, M.line, 0.216, 0.118, 0.325), 0, -0.012, 0.022); const foot = add(g, ball(1, M.patch, 0.2, 0.11, 0.31), 0, 0, 0); foot.renderOrder = 1; rim.renderOrder = 0; return g; });
 
 const HEAD_R = [0.86, 0.66, 0.7];
@@ -346,9 +344,9 @@ let LEG_R = 0.16, FOOT = 1;
 const REST = { L: V(-0.23, 0.11, 0.76), R: V(0.23, 0.11, 0.76) }, UP = { L: V(-0.46, 1.1, 0.9), R: V(0.46, 1.1, 0.9) };
 const paws = {};
 for (const side of ['L', 'R']) {
-  const rim = makeSausage(M.line, 1), core = makeSausage(M.fur, 2); catRig.add(rim, core);
-  const root = ball(1, M.fur); catRig.add(root);                       // closes the top of the leg inside the chest
-  const foot = new THREE.Group(); catRig.add(foot); const fr = add(foot, ball(1, M.line, 0.216, 0.118, 0.325), 0, -0.012, 0.022), ff = add(foot, ball(1, M.patch, 0.2, 0.11, 0.31), 0, 0, 0); fr.renderOrder = 2; ff.renderOrder = 3;
+  const rim = makeSausage(M.line, 1), core = makeSausage(M.fur, 2); scene.add(rim, core);
+  const root = ball(1, M.fur); scene.add(root);                       // closes the top of the leg inside the chest
+  const foot = new THREE.Group(); scene.add(foot); const fr = add(foot, ball(1, M.line, 0.216, 0.118, 0.325), 0, -0.012, 0.022), ff = add(foot, ball(1, M.patch, 0.2, 0.11, 0.31), 0, 0, 0); fr.renderOrder = 2; ff.renderOrder = 3;
   paws[side] = { side, rim, core, foot, root, pos: REST[side].clone(), to: REST[side].clone(), from: V(0, 0, 0), tapAt: -1e9, landed: true, landedAt: -1e9, pending: null, held: 0, mode: 'rest' };
 }
 const tmpC = V(0, 0, 0), curve = new THREE.QuadraticBezierCurve3(V(0, 0, 0), V(0, 0, 0), V(0, 0, 0));
@@ -417,7 +415,7 @@ $('btnCopy').onclick = () => { const out = $('shapeOut'), note = $('copied'); ou
 /* ---------- state ---------- */
 const RISE = 30, FALL = 46, STRIKE = RISE + FALL;
 const S = { last: performance.now(), lastKey: -1e9, lastMouse: -1e9, lastInput: performance.now(), sleepAt: 0, down: new Map(), thump: 0, thumpSide: 0, jolt: -1e9, rate: 0,
-  turn: 0, nod: 0, tilt: 0, lid: 0, blinkAt: performance.now() + 2500, blinkUntil: 0, happyUntil: 0, bounceAt: -1e9, act: null, actUntil: 0, nextAct: performance.now() + 6000, loaf: 0, curl: 0, side: 0,
+  turn: 0, nod: 0, tilt: 0, lid: 0, blinkAt: performance.now() + 2500, blinkUntil: 0, happyUntil: 0, bounceAt: -1e9, act: null, actUntil: 0, nextAct: performance.now() + 6000, loaf: 0, curl: 0,
   gazeX: 0, gazeY: 0, pointer: null, phase: 0, lastSide: 'L', alt: 'L', spin: 0, spinning: false, mouseDown: false, wigX: 0, wigZ: 0, lidDir: 1, mouseLean: 0, sx: 0, fwd: 0, fwdGoal: 0, demoMouse: 0, chips: [] };
 const sleeping = t => S.sleepAt && t > S.sleepAt;
 if (VIEW.get('eyes') === 'shut') { S.blinkUntil = 1e13; S.blinkAt = 1e14; } if (VIEW.get('eyes') === 'happy') S.happyUntil = 1e13; if (VIEW.get('coat')) setTimeout(() => setCoat(+VIEW.get('coat')), 0); if (VIEW.get('wall')) setTimeout(() => setWall(+VIEW.get('wall')), 0);   // preview switches
@@ -433,7 +431,7 @@ function land(p, t) {
 function strike(side, x, z, t, key) {
   const p = paws[side]; if (!p.landed) land(p, t);
   if (p.mode === 'up') p.pos.copy(UP[side]);
-  p.from.copy(p.pos); p.to.set(x, KEY_TOP + 0.09, z); catRig.worldToLocal(p.to); p.tapAt = p.mode === 'up' ? t - RISE : t; p.landed = false; p.pending = key || null; p.mode = 'key';
+  p.from.copy(p.pos); p.to.set(x, KEY_TOP + 0.09, z); p.tapAt = p.mode === 'up' ? t - RISE : t; p.landed = false; p.pending = key || null; p.mode = 'key';
   S.lastKey = t; lastStrikeAt = t; S.rate = Math.min(12, S.rate + 1); S.lastSide = side;
 }
 function keyDown(code, t = performance.now()) {
@@ -528,18 +526,15 @@ function frame() {
   S.phase += dt * (asleep ? 0.9 : 1.7 + Math.min(1.4, S.rate * 0.14));
   const breath = reduceMotion ? 0 : Math.sin(S.phase), bounceE = (t - S.bounceAt) / 420, bounce = bounceE < 1 ? Math.sin(Math.PI * bounceE) : 0;
   const reach = (paws.L.pos.z > 0.86 ? paws.L.pos.x - REST.L.x : 0) + (paws.R.pos.z > 0.86 ? paws.R.pos.x - REST.R.x : 0);
-  const act0 = S.act, stretching = act0 === 'stretch', licking = act0 === 'lick', grooming = act0 === 'groom', loafing = act0 === 'loaf', curling = act0 === 'curl', lying = act0 === 'side', yawning = act0 === 'yawn', flicking = act0 === 'tail', pouncing = act0 === 'pounce', actLeft = S.actUntil - t;
+  const act0 = S.act, stretching = act0 === 'stretch', licking = act0 === 'lick', grooming = act0 === 'groom', loafing = act0 === 'loaf', curling = act0 === 'curl', yawning = act0 === 'yawn', flicking = act0 === 'tail', pouncing = act0 === 'pounce', actLeft = S.actUntil - t;
   const yawn = yawning ? Math.sin(clamp(1 - actLeft / 1900, 0, 1) * Math.PI) ** 0.7 : 0, crouch = pouncing && actLeft > 520, swat = pouncing && actLeft <= 520 && actLeft > 120;
   if (pouncing && actLeft <= 520 && !S.pounced) { S.pounced = true; S.bounceAt = t; } if (!pouncing) S.pounced = false;
-  S.loaf += ((asleep ? 0.65 : loafing ? 1 : 0) - S.loaf) * ease(typing || mousing || S.pet ? 8 : 4);
+  S.loaf += ((loafing ? 1 : 0) - S.loaf) * ease(typing || mousing || S.pet ? 8 : 4);
   S.curl += ((curling ? 1 : 0) - S.curl) * ease(typing || mousing || S.pet ? 8 : 3.5);
-  S.side += ((lying ? 1 : 0) - S.side) * ease(typing || mousing || S.pet ? 9 : 3);
   S.low = (S.low || 0) + ((stretching ? 1 : crouch ? 0.55 : 0) - (S.low || 0)) * ease(crouch ? 9 : 5);
-  const loaf = S.loaf, curl = S.curl, side = S.side, squat = 1 - 0.4 * loaf - 0.28 * curl - 0.16 * S.low;
-  torso.scale.set(P.bodyW * (1 + 0.14 * loaf + 0.28 * curl + breath * (0.012 + 0.012 * loaf) - bounce * 0.03), P.bodyH * squat * (1 + breath * 0.012 + bounce * 0.05 - S.thump * (0.012 + 0.02 * fast)), 1 + 0.1 * loaf + 0.24 * curl + breath * 0.02);
-  catRig.rotation.set(-0.35 * side, -0.28 * side, 1.32 * side);
-  catRig.position.set(1.18 * side, 0.6 * side, 0.08 * side);
-  hindFeet.forEach((g, i) => { g.position.x = (i ? 1 : -1) * 0.6 * P.bodyW * (1 - 0.18 * loaf - 0.42 * curl - 0.45 * side); g.position.y = 0.1 + 0.48 * side; g.position.z = 0.25 - 0.32 * loaf - 0.16 * curl + 0.12 * side; });
+  const loaf = S.loaf, curl = S.curl, squat = 1 - 0.3 * loaf - 0.2 * curl - 0.16 * S.low;
+  torso.scale.set(P.bodyW * (1 + 0.1 * loaf + 0.18 * curl + breath * (0.012 + 0.012 * loaf) - bounce * 0.03), P.bodyH * squat * (1 + breath * 0.012 + bounce * 0.05 - S.thump * (0.012 + 0.02 * fast)), 1 + 0.08 * loaf + 0.16 * curl + breath * 0.02);
+  hindFeet.forEach((g, i) => { g.position.x = (i ? 1 : -1) * 0.6 * P.bodyW * (1 - 0.12 * loaf - 0.28 * curl); g.position.y = 0.1; g.position.z = 0.25 - 0.22 * loaf - 0.12 * curl; });
   // The body leans toward what the paws are doing, so the arms keep their length instead of stretching.
   let farZ = 0; for (const sd of ['L', 'R']) { const q = paws[sd]; if (q.held || t - q.tapAt < 260) farZ = Math.max(farZ, q.to.z); }
   if (farZ) S.fwdGoal = clamp(0.14 + (farZ - KB.z0) * 0.32, 0.14, 0.42);
@@ -547,27 +542,27 @@ function frame() {
   S.sx += (clamp(reach * 0.13, -0.2, 0.2) - DESK_DIR * S.mouseLean * 0.24 - S.sx) * ease(9);
   const sx = S.sx + S.thump * S.thumpSide * 0.012 + (crouch ? Math.sin(t / 55) * 0.02 : 0), fwd = S.fwd;
   upper.matrix.set(1, sx, 0, 0,  0, 1 - fwd * fwd * 0.35, 0, 0,  0, fwd, 1, 0,  0, 0, 0, 1);
-  S.tailDown = (S.tailDown || 0) + ((asleep || loafing || curling || lying ? 1 : 0) - (S.tailDown || 0)) * ease(2.6); poseTail(S.tailDown < 0.003 ? 0 : S.tailDown > 0.997 ? 1 : S.tailDown, flicking ? Math.sin(t / 85) * Math.sin(clamp(1 - actLeft / 1400, 0, 1) * Math.PI) : crouch ? Math.sin(t / 60) * 0.5 : 0);
+  S.tailDown = (S.tailDown || 0) + ((asleep || loafing || curling ? 1 : 0) - (S.tailDown || 0)) * ease(2.6); poseTail(S.tailDown < 0.003 ? 0 : S.tailDown > 0.997 ? 1 : S.tailDown, flicking ? Math.sin(t / 85) * Math.sin(clamp(1 - actLeft / 1400, 0, 1) * Math.PI) : crouch ? Math.sin(t / 60) * 0.5 : 0);
   tail.rotation.z = Math.sin(t / 900) * 0.05 * (1 - S.tailDown) + (typing ? Math.sin(t / (160 - 70 * fast)) * (0.02 + 0.07 * fast) : 0);
 
   // head
   const happy = t < S.happyUntil, calm = (idleActions || VIEW.has('pose')) && !typing && !asleep && !happy && !mousing && t - S.lastInput > 3500;
   if (S.wantStretch) { S.wantStretch = false; if (calm && !reduceMotion) { S.act = 'stretch'; S.actUntil = t + 1700; S.nextAct = t + rnd(6000, 12000); } }
-  if (calm && idleActions && !reduceMotion && t > S.nextAct) { const pool = ['lookL', 'lookR', 'tilt', 'ear', 'ear', 'lick', 'lick', 'groom', 'groom', 'loaf', 'curl', 'side', 'stretch', 'yawn', 'tail']; S.act = pool[Math.floor(Math.random() * pool.length)]; S.actUntil = t + ({ ear: 420, lick: 3200, groom: 4600, loaf: 6200, curl: 6800, side: 7600 }[S.act] || 1700); S.nextAct = t + rnd(7000, 15000); }
+  if (calm && idleActions && !reduceMotion && t > S.nextAct) { const pool = ['lookL', 'lookR', 'tilt', 'ear', 'ear', 'lick', 'lick', 'groom', 'groom', 'loaf', 'curl', 'stretch', 'yawn', 'tail']; S.act = pool[Math.floor(Math.random() * pool.length)]; S.actUntil = t + ({ ear: 420, lick: 3200, groom: 4600, loaf: 5200, curl: 5600 }[S.act] || 1700); S.nextAct = t + rnd(7000, 15000); }
   if (S.act && (t > S.actUntil || !calm)) S.act = null;
   const looking = typing && t - S.lastKey < 1000;
   // While the real cursor is moving, the cat watches the cursor itself: direction is measured from the head's place on screen.
   const follow = mousing && S.pointer && !(demo && t < S.demoMouse); let pdx = 0, pdy = 0;
   if (follow) { proj.setFromMatrixPosition(head.matrixWorld).project(camera); pdx = S.pointer.x - proj.x; pdy = S.pointer.y + proj.y; }
-  const turnT = asleep ? 0 : follow ? clamp(pdx * 0.5, -0.4, 0.4) : mousing ? -0.36 * DESK_DIR : looking ? (S.lastSide === 'L' ? -0.3 : 0.3) : grooming ? 0.48 + Math.sin(t / 180) * 0.05 : lying ? 0.24 : curling ? -0.18 : loafing ? 0.12 : S.act === 'lookL' ? -0.45 : S.act === 'lookR' ? 0.45 : S.pointer && !typing ? clamp(S.pointer.x, -1, 1) * 0.22 : 0;
-  const nodT = asleep ? 0.5 : yawning ? -0.3 * yawn : crouch ? 0.16 : happy ? -0.12 : grooming ? 0.3 + Math.sin(t / 150) * 0.08 : lying ? 0.08 : curling ? 0.24 : loafing ? 0.12 : licking ? 0.34 + Math.sin(t / 140) * 0.09 : stretching ? -0.18 : looking ? 0.3 : follow ? clamp(pdy * 0.5, -0.28, 0.4) : mousing ? 0.22 : S.pointer && !typing ? clamp(S.pointer.y * 0.2, -0.16, 0.2) : 0;
-  const tiltT = asleep ? 0.16 : grooming ? -0.28 : lying ? -0.16 : curling ? 0.12 : licking ? -0.12 : S.act === 'tilt' ? 0.2 : happy ? (S.petSide || -1) * 0.1 + Math.sin(t / 330) * 0.06 : 0;
+  const turnT = asleep ? 0 : follow ? clamp(pdx * 0.5, -0.4, 0.4) : mousing ? -0.36 * DESK_DIR : looking ? (S.lastSide === 'L' ? -0.3 : 0.3) : grooming ? 0.48 + Math.sin(t / 180) * 0.05 : curling ? -0.14 : loafing ? 0.1 : S.act === 'lookL' ? -0.45 : S.act === 'lookR' ? 0.45 : S.pointer && !typing ? clamp(S.pointer.x, -1, 1) * 0.22 : 0;
+  const nodT = asleep ? 0.5 : yawning ? -0.3 * yawn : crouch ? 0.16 : happy ? -0.12 : grooming ? 0.3 + Math.sin(t / 150) * 0.08 : curling ? 0.2 : loafing ? 0.1 : licking ? 0.34 + Math.sin(t / 140) * 0.09 : stretching ? -0.18 : looking ? 0.3 : follow ? clamp(pdy * 0.5, -0.28, 0.4) : mousing ? 0.22 : S.pointer && !typing ? clamp(S.pointer.y * 0.2, -0.16, 0.2) : 0;
+  const tiltT = asleep ? 0.16 : grooming ? -0.28 : curling ? 0.1 : licking ? -0.12 : S.act === 'tilt' ? 0.2 : happy ? (S.petSide || -1) * 0.1 + Math.sin(t / 330) * 0.06 : 0;
   S.turn += (turnT - S.turn) * ease(7); S.nod += (nodT - S.nod) * ease(6); S.tilt += (tiltT - S.tilt) * ease(5);
   { const w = (t - (S.wokeAt || -1e9)) / 750; S.shake = w > 0.15 && w < 1 ? Math.sin(w * 26) * 0.16 * (1 - w) : 0; }
   head.rotation.set(S.nod + S.thump * (0.05 + 0.05 * fast), S.turn + S.shake, S.tilt);
-  head.position.x = 0.1 * lying - 0.06 * curling + 0.04 * grooming;
-  head.position.z = 0.1 - fwd * 0.5 + 0.3 * loaf + 0.42 * curl + 0.08 * lying;
-  head.position.y = (2.3 * P.bodyH + P.neck) * (1 - 0.43 * loaf - 0.3 * curl - 0.16 * S.low) + breath * 0.018 + bounce * 0.09 - (asleep ? 0.14 : 0) - S.thump * 0.02;
+  head.position.x = 0.04 * grooming - 0.05 * curling;
+  head.position.z = 0.1 - fwd * 0.5 + 0.22 * loaf + 0.3 * curl;
+  head.position.y = (2.3 * P.bodyH + P.neck) * (1 - 0.32 * loaf - 0.22 * curl - 0.16 * S.low) + breath * 0.018 + bounce * 0.09 - (asleep ? 0.14 : 0) - S.thump * 0.02;
   { const py = head.position.y; headFix.matrix.set(1, -sx, 0, sx * py,  0, 1, 0, 0,  0, -fwd, 1, fwd * py,  0, 0, 0, 1); }
   const flick = S.act === 'ear' ? Math.sin((S.actUntil - t) / 420 * Math.PI * 2) * 0.28 : 0;
   { const relax = S.lidDir < 0 ? 0.2 * smooth(0.5, 1, S.lid) : 0; ears[0].rotation.z = 0.24 + relax + flick; ears[1].rotation.z = -0.24 - relax - flick * 0.5; ears[0].rotation.x = ears[1].rotation.x = -0.32 * fast; }
@@ -575,7 +570,7 @@ function frame() {
   // eyes
   if (t > S.blinkAt) { S.blinkUntil = t + 130; S.blinkAt = t + rnd(2600, 5600); }
   S.lidDir = 1;                      // happy: lower lid rises into an arch; blink and sleep: upper lid comes down
-  const lidT = asleep || t < S.blinkUntil || happy || grooming ? 1 : lying ? 0.58 : curling ? 0.42 : loafing ? 0.3 : licking || stretching || yawn > 0.25 ? 1 : 0; S.lid += (lidT - S.lid) * (1 - Math.exp(-realDt * (lidT > S.lid ? 34 : 16)));   // eyelids keep real time even if frames are dropped
+  const lidT = asleep || t < S.blinkUntil || happy || grooming ? 1 : curling ? 0.32 : loafing ? 0.22 : licking || stretching || yawn > 0.25 ? 1 : 0; S.lid += (lidT - S.lid) * (1 - Math.exp(-realDt * (lidT > S.lid ? 34 : 16)));   // eyelids keep real time even if frames are dropped
   const gx = follow ? clamp(pdx * 2.2, -1, 1) : mousing ? -0.8 * DESK_DIR : looking ? (S.lastSide === 'L' ? -0.5 : 0.5) : S.pointer ? clamp(S.pointer.x * 1.2, -1, 1) : 0, gy = follow ? clamp(pdy * 2.2, -1, 1) : looking || mousing ? 1 : S.pointer ? clamp(S.pointer.y * 1.3, -1, 1) : 0;
   S.gazeX += (gx - S.gazeX) * ease(9); S.gazeY += (gy - S.gazeY) * ease(9);
   const widen = (looking ? 1.25 : pouncing ? 1.9 : 1) * (1 - 0.3 * fast);
@@ -604,18 +599,18 @@ function frame() {
     } else {
       if (!p.landed) land(p, t);
       if (p.held) { p.pos.x += (p.to.x - p.pos.x) * ease(30); p.pos.z += (p.to.z - p.pos.z) * ease(30); p.pos.y += (p.to.y - 0.04 - p.pos.y) * ease(30); }
-      else if (side === MOUSE_PAW && mouseOn && since > STRIKE + 110) { p.mode = 'mouse'; tmpGoal.copy(mouseGroup.position); tmpGoal.y = 0.3 - (S.mouseDown ? 0.05 : 0); tmpGoal.z += 0.02; catRig.worldToLocal(tmpGoal); p.pos.lerp(tmpGoal, ease(16)); }
-      else if (licking && side === 'R' && since > STRIKE + 110) { p.mode = 'lick'; head.getWorldPosition(tmpGoal); tmpGoal.x += 0.06; tmpGoal.y += -0.5 * P.headSize - Math.sin(t / 140) * 0.06; tmpGoal.z += 0.66 * P.headSize; catRig.worldToLocal(tmpGoal); p.pos.lerp(tmpGoal, ease(12)); }
+      else if (side === MOUSE_PAW && mouseOn && since > STRIKE + 110) { p.mode = 'mouse'; tmpGoal.copy(mouseGroup.position); tmpGoal.y = 0.3 - (S.mouseDown ? 0.05 : 0); tmpGoal.z += 0.02; p.pos.lerp(tmpGoal, ease(16)); }
+      else if (licking && side === 'R' && since > STRIKE + 110) { p.mode = 'lick'; head.getWorldPosition(tmpGoal); tmpGoal.x += 0.06; tmpGoal.y += -0.5 * P.headSize - Math.sin(t / 140) * 0.06; tmpGoal.z += 0.66 * P.headSize; p.pos.lerp(tmpGoal, ease(12)); }
       else if (grooming && side === 'R' && since > STRIKE + 110) { p.mode = 'groom'; tmpGoal.set(0.48 * P.bodyW, 1.38 * P.bodyH + Math.sin(t / 170) * 0.035, 0.68); p.pos.lerp(tmpGoal, ease(10)); }
-      else if ((loaf > 0.03 || curl > 0.03 || side > 0.03) && since > STRIKE + 110) { p.mode = 'tuck'; const onSide = side > 0.03; tmpGoal.set((side === 'L' ? -1 : 1) * (onSide ? 0.1 : 0.12), onSide ? 1.02 : 0.2, onSide ? 0.58 : 0.44 + 0.12 * curl); p.pos.lerp(tmpGoal, ease(8)); }
+      else if ((loaf > 0.03 || curl > 0.03) && since > STRIKE + 110) { p.mode = 'tuck'; tmpGoal.set((side === 'L' ? -1 : 1) * 0.1, 0.18, 0.48 + 0.08 * curl); p.pos.lerp(tmpGoal, ease(8)); }
       else if (swat && side === (S.pointer && S.pointer.x > 0 ? 'R' : 'L') && since > STRIKE + 110) { p.mode = 'swat'; tmpGoal.set((side === 'L' ? -1 : 1) * 0.62, 1.25, 1.05); p.pos.lerp(tmpGoal, ease(26)); }
       else if (stretching && since > STRIKE + 110) { p.mode = 'rest'; tmpGoal.copy(REST[side]); tmpGoal.z += 0.85; p.pos.lerp(tmpGoal, ease(8)); }
       else if (since > STRIKE + 110) { p.mode = hover ? 'up' : 'rest'; const goal = hover ? tmpGoal.copy(UP[side]) : REST[side]; if (hover) goal.z += fwd * 0.6; p.pos.lerp(goal, ease(hover ? 20 : 9)); if (hover) p.pos.y += Math.sin(t / 240 + (side === 'L' ? 0 : 1.8)) * 0.004; }
     }
-    shoulderW.copy(SHOULDER[side]); shoulderW.x += sx * shoulderW.y; shoulderW.z += fwd * shoulderW.y; shoulderW.y = shoulderW.y * (1 - fwd * fwd * 0.35) * squat + breath * 0.02 + bounce * 0.06; drawLimb(p, shoulderW);
+    shoulderW.copy(SHOULDER[side]); shoulderW.x += sx * shoulderW.y; shoulderW.z += fwd * shoulderW.y; shoulderW.y = shoulderW.y * (1 - fwd * fwd * 0.35) * squat + breath * 0.02 + bounce * 0.06;
+    drawLimb(p, shoulderW);
   }
 
-  belly.visible = S.side > 0.01; if (belly.visible) { const reveal = smooth(0, 0.65, S.side); belly.scale.set(0.68 * reveal, 0.82 * reveal, 0.07 * reveal); }
   renderer.render(scene, camera);
   // labels above the keys that were hit
   tongue.visible = (licking && paws.R.mode === 'lick') || (grooming && paws.R.mode === 'groom'); if (tongue.visible) { const k = Math.sin(t / (grooming ? 170 : 140)); tongue.position.y = -0.38 - 0.05 * k; tongue.scale.set(0.06, 0.085 + 0.03 * k, 0.04); }
@@ -652,7 +647,7 @@ return {
     scene.updateMatrixWorld(true);
     return [
       hitExpand([head]),
-      hitExpand([torso, belly, ...hindFeet, paws.L.rim, paws.L.core, paws.L.root, paws.L.foot, paws.R.rim, paws.R.core, paws.R.root, paws.R.foot]),
+      hitExpand([torso, ...hindFeet, paws.L.rim, paws.L.core, paws.L.root, paws.L.foot, paws.R.rim, paws.R.core, paws.R.root, paws.R.foot]),
       hitExpand([tail]),
       hitExpand([activeLayout.group]),
       hitExpand([mouseGroup]),
