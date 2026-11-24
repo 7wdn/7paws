@@ -25,6 +25,7 @@ const autostartInput = document.getElementById("autostart") as HTMLInputElement;
 const privacyInput = document.getElementById("privacyMode") as HTMLInputElement;
 const purrPetInput = document.getElementById("purrPet") as HTMLInputElement;
 const purrSleepInput = document.getElementById("purrSleep") as HTMLInputElement;
+const idleActionsInput = document.getElementById("idleActions") as HTMLInputElement;
 const labelsInput = document.getElementById("showKeyLabels") as HTMLInputElement;
 const mcpEnabledInput = document.getElementById("mcpEnabled") as HTMLInputElement;
 const mcpClientSelect = document.getElementById("mcpClientSelect") as HTMLButtonElement;
@@ -678,6 +679,7 @@ function syncControls() {
   privacyInput.checked = settings.privacyMode;
   purrPetInput.checked = settings.purrPet;
   purrSleepInput.checked = settings.purrSleep;
+  idleActionsInput.checked = settings.idleActions;
   labelsInput.checked = settings.showKeyLabels;
   mcpEnabledInput.checked = settings.mcpEnabled;
   syncMcpClient();
@@ -917,6 +919,9 @@ function bindControls() {
   });
   purrSleepInput.addEventListener("change", () => {
     void saveSettings({ purrSleep: purrSleepInput.checked });
+  });
+  idleActionsInput.addEventListener("change", () => {
+    void saveSettings({ idleActions: idleActionsInput.checked });
   });
   labelsInput.addEventListener("change", () => {
     void saveSettings({ showKeyLabels: labelsInput.checked });

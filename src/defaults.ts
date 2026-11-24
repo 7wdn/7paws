@@ -14,6 +14,7 @@ export const defaultSettings: AppSettings = {
   leftMouse: false,
   coat: "tuxedo",
   sleepMinutes: 5,
+  idleActions: true,
   showKeyLabels: true,
   keyboardLayout: "65",
   showTrayIcon: true,
