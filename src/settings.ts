@@ -632,8 +632,10 @@ function buildCoatButtons() {
     sw.className = "coat-swatch";
     sw.style.background = swatch;
     const label = document.createElement("span");
+    label.className = "coat-name";
     label.textContent = coat.name;
     btn.append(sw, label);
+    btn.title = coat.name;
     btn.addEventListener("click", () => {
       if (settings.coat === coat.id) return;
       void saveSettings({ coat: coat.id });
@@ -649,8 +651,10 @@ function buildCoatButtons() {
     sw.className = "coat-swatch";
     sw.style.background = coatSwatch(cat);
     const label = document.createElement("span");
+    label.className = "coat-name";
     label.textContent = cat.name;
     btn.append(sw, label);
+    btn.title = cat.name;
     btn.addEventListener("click", () => {
       if (settings.coat === cat.id) return;
       void saveSettings({ coat: cat.id });
