@@ -26,6 +26,7 @@
 
 ### 调整
 
+- 呼噜声改为内置 MP3 录音，保留 WebAudio 循环、摸猫/睡眠独立开关和平滑淡入淡出。
 - Win7 构建帧率限制为约 30fps，设置窗口使用不透明背景。
 - Release 增加 `*-win7-x64-portable.zip`，校验 x64、subsystem 6.1、CRT/COM 导入和固定运行时完整性。
 
