@@ -12,6 +12,7 @@ interface RefCatApi {
   mouseMoved(): void;
   clear(): void;
   state(): string;
+  idleAction(): string;
   headSideAt(clientX: number, clientY: number): number;
   hitRegions(): Region[];
   setPointerNdc(x: number, y: number): void;
@@ -25,7 +26,7 @@ declare global {
   interface Window {
     createCat?: (
       host: HTMLElement,
-      options?: { coat?: string; sleepMinutes?: number },
+      options?: { coat?: string; sleepMinutes?: number; idleActions?: boolean },
     ) => RefCatApi | null;
   }
 }
@@ -58,6 +59,7 @@ export class SevenPawsPet {
     const api = window.createCat(host, {
       coat: settings.coat,
       sleepMinutes: settings.sleepMinutes,
+      idleActions: settings.idleActions,
     });
     if (!api) throw new Error("Reference cat renderer failed to start");
     this.api = api;
@@ -214,6 +216,7 @@ export class SevenPawsPet {
       followKeys: true,
       leftMouse: settings.leftMouse,
       sleepMinutes: settings.sleepMinutes,
+      idleActions: settings.idleActions,
       showKeyLabels: settings.showKeyLabels,
     };
     const activeCat = this.cats.find((c) => c.id === settings.coat);

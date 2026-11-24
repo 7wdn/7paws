@@ -36,6 +36,7 @@ export interface AppSettings {
   leftMouse: boolean;
   coat: string;
   sleepMinutes: number;
+  idleActions: boolean;
   showKeyLabels: boolean;
   keyboardLayout: "65" | "104";
   showTrayIcon: boolean;
