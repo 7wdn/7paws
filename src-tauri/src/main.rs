@@ -13,6 +13,8 @@ fn main() {
             .and_then(|value| value.parse::<u32>().ok())
         {
             seven_paws_lib::wait_for_process_exit(process_id);
+            seven_paws_lib::run_after_restart();
+            return;
         }
     }
     seven_paws_lib::run()
