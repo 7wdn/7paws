@@ -1027,6 +1027,18 @@ pub fn wait_for_process_exit(process_id: u32) {
 }
 
 #[tauri::command]
+fn is_elevated() -> bool {
+    #[cfg(windows)]
+    {
+        windows_zorder::is_elevated_now()
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
+}
+
+#[tauri::command]
 fn restart_as_admin(app: AppHandle) -> Result<String, String> {
     #[cfg(windows)]
     {
@@ -1167,6 +1179,7 @@ fn run_inner(_restarting: bool) {
             get_mcp_command,
             is_portable_install,
             create_desktop_shortcut,
+            is_elevated,
             restart_as_admin,
             open_project_page,
             open_release_page,
