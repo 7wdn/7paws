@@ -71,6 +71,46 @@ pub struct AppState {
     hit_regions: Arc<Mutex<Vec<[f64; 4]>>>,
 }
 
+#[cfg(windows)]
+struct SingleInstanceGuard(windows_sys::Win32::Foundation::HANDLE);
+
+#[cfg(windows)]
+impl Drop for SingleInstanceGuard {
+    fn drop(&mut self) {
+        unsafe {
+            windows_sys::Win32::Foundation::CloseHandle(self.0);
+        }
+    }
+}
+
+#[cfg(windows)]
+fn acquire_single_instance() -> Option<SingleInstanceGuard> {
+    use windows_sys::Win32::Foundation::{
+        GetLastError, SetLastError, ERROR_ALREADY_EXISTS, HANDLE,
+    };
+    use windows_sys::Win32::System::Threading::CreateMutexW;
+
+    let name: Vec<u16> = "Local\\com.qoder.7paws.SingleInstance\0"
+        .encode_utf16()
+        .collect();
+    unsafe {
+        SetLastError(0);
+    }
+    let handle: HANDLE = unsafe { CreateMutexW(std::ptr::null(), 1, name.as_ptr()) };
+    if handle.is_null() {
+        eprintln!("failed to create the 7paws single-instance mutex");
+        return None;
+    }
+    let error = unsafe { GetLastError() };
+    if error == ERROR_ALREADY_EXISTS {
+        unsafe {
+            windows_sys::Win32::Foundation::CloseHandle(handle);
+        }
+        return None;
+    }
+    Some(SingleInstanceGuard(handle))
+}
+
 fn base_dimensions(layout: &str) -> (f64, f64) {
     if layout == "104" {
         (BASE_WIDTH_104, BASE_HEIGHT_104)
@@ -967,6 +1007,11 @@ pub fn run_mcp_stdio() {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(windows)]
+    let Some(_single_instance_guard) = acquire_single_instance() else {
+        return;
+    };
+
     #[cfg(all(windows, feature = "win7"))]
     configure_win7_runtime();
 
