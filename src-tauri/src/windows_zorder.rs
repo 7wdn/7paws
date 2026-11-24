@@ -271,6 +271,16 @@ fn launch_elevated(exe: &Path, parameters: &str) -> bool {
 }
 
 #[cfg(debug_assertions)]
+pub fn is_elevated_now() -> bool {
+    false
+}
+
+#[cfg(not(debug_assertions))]
+pub fn is_elevated_now() -> bool {
+    is_elevated()
+}
+
+#[cfg(debug_assertions)]
 pub fn request_elevated_startup(_enabled: bool) -> bool {
     false
 }

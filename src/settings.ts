@@ -24,7 +24,6 @@ const clickThroughLockedInput = document.getElementById("clickThroughLocked") as
 const showTrayIconInput = document.getElementById("showTrayIcon") as HTMLInputElement;
 const autostartInput = document.getElementById("autostart") as HTMLInputElement;
 const runAsAdminInput = document.getElementById("runAsAdmin") as HTMLInputElement;
-const adminRunHint = document.getElementById("adminRunHint") as HTMLDivElement;
 const privacyInput = document.getElementById("privacyMode") as HTMLInputElement;
 const purrPetInput = document.getElementById("purrPet") as HTMLInputElement;
 const purrSleepInput = document.getElementById("purrSleep") as HTMLInputElement;
@@ -928,12 +927,7 @@ function bindControls() {
     void saveSettings({ autostart: autostartInput.checked });
   });
   runAsAdminInput.addEventListener("change", () => {
-    const enabled = runAsAdminInput.checked;
-    adminRunHint.className = "menu-hint mcp-hint";
-    adminRunHint.textContent = enabled
-      ? "将在下次启动时请求 UAC；若取消则本次仍以普通权限运行"
-      : "已关闭，下次启动不再自动请求管理员权限";
-    void saveSettings({ runAsAdmin: enabled });
+    void saveSettings({ runAsAdmin: runAsAdminInput.checked });
   });
   privacyInput.addEventListener("change", () => {
     void saveSettings({ privacyMode: privacyInput.checked });
@@ -1124,6 +1118,11 @@ async function boot() {
   let portable = false;
   if (isTauri && isWindows) {
     portable = await invoke<boolean>("is_portable_install").catch(() => false);
+    const elevated = await invoke<boolean>("is_elevated").catch(() => false);
+    if (elevated) {
+      restartAdminBtn.hidden = true;
+      gameHint.hidden = true;
+    }
   }
   shortcutSection.hidden = !(isTauri && isWindows && portable);
   gameSection.hidden = !(isTauri && isWindows);
