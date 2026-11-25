@@ -25,6 +25,8 @@ const back = color => new THREE.MeshBasicMaterial({ color, side: THREE.BackSide 
 /* ---------- materials that a coat preset recolours ---------- */
 const onFace = (color, k) => new THREE.MeshBasicMaterial({ color, polygonOffset: true, polygonOffsetFactor: -4 * k, polygonOffsetUnits: -4 * k });
 const M = { lid: onFace('#101010', 3), blush: flat('#f08f9c'), shut: onFace('#8b8f86', 1), fur: flat('#101010'), patch: flat('#101010'), line: back('#8b8f86'), eye: onFace('#b9d36b', 1), eye2: onFace('#b9d36b', 1), pupil: onFace('#0b0b0b', 2), whisker: flat('#f4f4ee'), whiskerOut: flat('#101010'), stripe: onFace('#101010', 1), inner: flat('#101010') };   // [7paws] eye2 = second iris for heterochromia
+M.leg = new THREE.MeshBasicMaterial({ color: '#ffffff', vertexColors: true });
+const LEG_COAT = { base: new THREE.Color('#101010'), tip: new THREE.Color('#101010'), tmp: new THREE.Color(), fade: [0.38, 0.62] };
 
 /* ---------- desk, keyboard, mouse ---------- */
 const deskMat = flat('#e9ebb6'), deskEdge = flat('#1c1d1a');
@@ -245,6 +247,13 @@ function paintCoat(c) {
     blob(b, 0.04, 0.42, 0.15, 0.2, c.patchA); blob(b, 0.56, 0.22, 0.13, 0.13, c.patchB); blob(b, 0.78, 0.5, 0.16, 0.22, c.patchB); blob(b, 0.5, 0.56, 0.1, 0.12, c.patchA);
     blob(h, 0.11, 0.7, 0.13, 0.24, c.patchA, 0.3); blob(h, 0.42, 0.72, 0.11, 0.22, c.patchB, -0.3); blob(h, 0.75, 0.5, 0.2, 0.3, c.patchB);
   }
+  if (c.mask) {
+    const rgb = [1, 3, 5].map(i => parseInt(c.mask.slice(i, i + 2), 16)).join(',');
+    h.save(); h.translate(0.25 * TEX, 0.533 * TEX); h.scale(0.18 * TEX, 0.238 * TEX);
+    const mask = h.createRadialGradient(0, 0, 0, 0, 0, 1);
+    mask.addColorStop(0, `rgba(${rgb},1)`); mask.addColorStop(0.65, `rgba(${rgb},1)`); mask.addColorStop(1, `rgba(${rgb},0)`);
+    h.fillStyle = mask; h.fillRect(-1, -1, 2, 2); h.restore();
+  }
   // [7paws] AI/photo-authored markings: ellipses in part uv space (u wraps around the body).
   if (c.spots && c.spots.length) for (const sp of c.spots) {
     const g2 = sp.part === 'head' ? h : b, rot = (sp.rotation || 0) * Math.PI / 180;
@@ -310,6 +319,7 @@ const SEG = 48, SIDES = 14, CAP = 5, RINGS = SEG + 1 + CAP;
 function makeSausage(mat, order) {
   const geo = new THREE.BufferGeometry(), index = [];
   geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(RINGS * SIDES * 3), 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(RINGS * SIDES * 3), 3));
   for (let r = 0; r < RINGS - 1; r++) for (let k = 0; k < SIDES; k++) { const a = r * SIDES + k, b = r * SIDES + (k + 1) % SIDES, c = a + SIDES, d = b + SIDES; index.push(a, b, c, b, d, c); }
   geo.setIndex(index); const mesh = new THREE.Mesh(geo, mat); mesh.frustumCulled = false; mesh.renderOrder = order; return mesh;
 }
@@ -321,7 +331,9 @@ function shapeSausage(mesh, path, radius, ref) {
     if (r <= SEG) { const t = r / SEG; path.getPoint(t, sP); path.getTangent(t, sT); rad = radius(t); if (r === SEG) endR = rad; }
     else { const a = (r - SEG) / CAP * Math.PI / 2; path.getPoint(1, sP); path.getTangent(1, sT); sP.addScaledVector(sT, endR * Math.sin(a)); rad = endR * Math.cos(a); }
     sN.copy(ref).addScaledVector(sT, -ref.dot(sT)).normalize(); sB.crossVectors(sT, sN);
-    for (let k = 0; k < SIDES; k++) { const a = k / SIDES * Math.PI * 2, c = Math.cos(a) * rad, d = Math.sin(a) * rad; pos.setXYZ(n++, sP.x + sN.x * c + sB.x * d, sP.y + sN.y * c + sB.y * d, sP.z + sN.z * c + sB.z * d); }
+    for (let k = 0; k < SIDES; k++) { const a = k / SIDES * Math.PI * 2, c = Math.cos(a) * rad, d = Math.sin(a) * rad; pos.setXYZ(n, sP.x + sN.x * c + sB.x * d, sP.y + sN.y * c + sB.y * d, sP.z + sN.z * c + sB.z * d);
+      if (mesh.material.vertexColors) { const t = Math.min(1, r / SEG), f = smooth(LEG_COAT.fade[0], LEG_COAT.fade[1], t); LEG_COAT.tmp.copy(LEG_COAT.base).lerp(LEG_COAT.tip, f); const col = mesh.geometry.attributes.color; col.setXYZ(n, LEG_COAT.tmp.r, LEG_COAT.tmp.g, LEG_COAT.tmp.b); col.needsUpdate = true; }
+      n++; }
   }
   pos.needsUpdate = true;
 }
@@ -346,7 +358,7 @@ let LEG_R = 0.16, FOOT = 1;
 const REST = { L: V(-0.23, 0.11, 0.76), R: V(0.23, 0.11, 0.76) }, UP = { L: V(-0.46, 1.1, 0.9), R: V(0.46, 1.1, 0.9) };
 const paws = {};
 for (const side of ['L', 'R']) {
-  const rim = makeSausage(M.line, 1), core = makeSausage(M.fur, 2); scene.add(rim, core);
+  const rim = makeSausage(M.line, 1), core = makeSausage(M.leg, 2); scene.add(rim, core);
   const root = ball(1, M.fur); scene.add(root);                       // closes the top of the leg inside the chest
   const foot = new THREE.Group(); scene.add(foot); const fr = add(foot, ball(1, M.line, 0.216, 0.118, 0.325), 0, -0.012, 0.022), ff = add(foot, ball(1, M.patch, 0.2, 0.11, 0.31), 0, 0, 0); fr.renderOrder = 2; ff.renderOrder = 3;
   paws[side] = { side, rim, core, foot, root, pos: REST[side].clone(), to: REST[side].clone(), from: V(0, 0, 0), tapAt: -1e9, landed: true, landedAt: -1e9, pending: null, held: 0, mode: 'rest' };
@@ -372,16 +384,19 @@ const COATS = [
   { id: 'orange', name: '橘猫', pattern: 'tabby', fur: '#e9973f', patch: '#fbe8c9', line: '#7a4312', eye: '#5c8a3a', whisker: '#fffaf0', stripe: '#c26a1f', inner: '#e9973f' },
   { id: 'tabby', name: '狸花猫', pattern: 'tabby', fur: '#a08a6c', patch: '#a08a6c', line: '#3f3324', eye: '#8fae4a', whisker: '#f4f0e4', stripe: '#4d3d2b', inner: '#d9a79a' },
   { id: 'calico', name: '三花猫', pattern: 'calico', fur: '#f8f6ef', patch: '#f8f6ef', patchA: '#e9973f', patchB: '#1d1c1a', tail: '#1d1c1a', line: '#8a8676', eye: '#c79a2e', whisker: '#b5b1a2', whiskerOut: '#b5b1a2', stripe: '#f8f6ef', inner: '#f2b9b0' },
+  { id: 'siamese', name: '暹罗猫', pattern: 'point', fur: '#e2d6c0', patch: '#2e2521', line: '#4a3c30', eye: '#8fbde8', whisker: '#efe8dc', whiskerOut: '#8a7b66', stripe: '#e2d6c0', inner: '#3a2f28', lid: '#2e2521', shut: '#16110f', leg: '#2e2521', legFade: [0.38, 0.62], mask: '#2e2521', tail: '#2e2521', ear: '#2e2521' },
+  { id: 'black', name: '黑猫', fur: '#101010', patch: '#101010', line: '#8b8f86', eye: '#eab03c', whisker: '#a4a79e', whiskerOut: '#101010', stripe: '#101010', inner: '#101010' },
   { id: 'white', name: '白猫', fur: '#f8f6ef', patch: '#f8f6ef', line: '#8a8676', eye: '#5aa9c9', whisker: '#b5b1a2', whiskerOut: '#b5b1a2', stripe: '#f8f6ef', inner: '#f2b9b0' },
   { id: 'blue', name: '蓝灰猫', fur: '#8090a0', patch: '#8090a0', line: '#3c4650', eye: '#e0a63a', whisker: '#f4f4ee', stripe: '#667686', inner: '#c59aa0' },
-  { id: 'siamese', name: '暹罗猫', pattern: 'point', fur: '#f4ead9', patch: '#4a352b', line: '#6b5548', eye: '#5c8fbe', whisker: '#fbf6ea', whiskerOut: '#6b5548', stripe: '#f4ead9', inner: '#7d5e52', tail: '#4a352b', ear: '#4a352b', spots: [
-    { part: 'head', x: 0.25, y: 0.48, rx: 0.105, ry: 0.125, color: '#4a352b' },
-    { part: 'head', x: 0.25, y: 0.3, rx: 0.085, ry: 0.13, color: '#4a352b' }
-  ] }
+  { id: 'gray-white', name: '灰白猫', fur: '#77808b', patch: '#f8f6ef', line: '#3c4650', eye: '#e0a63a', whisker: '#f4f4ee', whiskerOut: '#3c4650', stripe: '#77808b', inner: '#c59aa0' },
+  { id: 'orange-white', name: '橘白猫', fur: '#e9973f', patch: '#fbf3e4', line: '#7a4312', eye: '#5c9a3a', whisker: '#fffaf0', whiskerOut: '#7a4312', stripe: '#e9973f', inner: '#efb0a0' },
+  { id: 'tortie', name: '玳瑁猫', pattern: 'calico', fur: '#24201d', patch: '#24201d', patchA: '#c8692c', patchB: '#8c4d22', tail: '#24201d', line: '#8b8f86', eye: '#e2a83a', whisker: '#e8e4da', whiskerOut: '#24201d', stripe: '#24201d', inner: '#b98a80' },
+  { id: 'cream', name: '奶油猫', pattern: 'tabby', fur: '#f2dcb3', patch: '#faf0dc', line: '#9a7b52', eye: '#c4722a', whisker: '#b5a688', whiskerOut: '#b5a688', stripe: '#e2bf8a', inner: '#eeaaa0' },
+  { id: 'silver', name: '银渐层', fur: '#d6dadd', patch: '#f1f2f2', line: '#6e767c', eye: '#4aa868', whisker: '#9ea6ac', whiskerOut: '#9ea6ac', stripe: '#d6dadd', inner: '#e6b6b6' }
 ];
 const WALLS = [['浅色桌面', 'transparent', '#e9ebb6'], ['深色桌面', '#1f2226', '#454c57'], ['蓝色桌面', '#2f5d8a', '#454c57'], ['照片桌面', 'linear-gradient(135deg,#3b2f4a,#b8693f 55%,#e9c46a)', '#454c57']];
 const coatLuma = hex => { const n = parseInt(hex.slice(1), 16); return (0.2126 * (n >> 16 & 255) + 0.7152 * (n >> 8 & 255) + 0.0722 * (n & 255)) / 255; };   // [7paws] brightness judged from the colour itself so photo-derived coats work too
-function applyCoat(c) { const furLum = coatLuma(c.fur); for (const k of ['fur', 'patch', 'line', 'eye', 'whisker', 'stripe', 'inner']) M[k].color.set(c[k]); M.eye2.color.set(c.eye2 || c.eye); M.body.color.set('#ffffff'); M.ear.color.set(c.ear || c.fur); paintCoat(c); M.lid.color.set(c.fur); whiskers.forEach(w => w.pivot.scale.setScalar(0.78)); { const pale = furLum > 0.78, o = pale ? '#b5b1a2' : '#f1eee2', w = pale ? 0.7 : 1; renderer.domElement.style.filter = [[w, 0], [-w, 0], [0, w], [0, -w]].map(([x, y]) => `drop-shadow(${x}px ${y}px 0 ${o})`).join(' '); } M.shut.color.set(furLum < 0.16 ? c.eye : c.line); M.whiskerOut.color.set(c.whiskerOut || c.line); muzzle.visible = false; chest.visible = false; hitColor.set(c.eye); }
+function applyCoat(c) { const furLum = coatLuma(c.fur); for (const k of ['fur', 'patch', 'line', 'eye', 'whisker', 'stripe', 'inner']) M[k].color.set(c[k]); M.eye2.color.set(c.eye2 || c.eye); M.body.color.set('#ffffff'); M.ear.color.set(c.ear || c.fur); LEG_COAT.base.set(c.fur); LEG_COAT.tip.set(c.leg || c.fur); LEG_COAT.fade = c.legFade || [0.38, 0.62]; paintCoat(c); M.lid.color.set(c.lid || c.fur); whiskers.forEach(w => w.pivot.scale.setScalar(0.78)); { const pale = furLum > 0.78, o = pale ? '#b5b1a2' : '#f1eee2', w = pale ? 0.7 : 1; renderer.domElement.style.filter = [[w, 0], [-w, 0], [0, w], [0, -w]].map(([x, y]) => `drop-shadow(${x}px ${y}px 0 ${o})`).join(' '); } M.shut.color.set(c.shut || (furLum < 0.16 ? c.eye : c.line)); M.whiskerOut.color.set(c.whiskerOut || c.line); muzzle.visible = false; chest.visible = false; hitColor.set(c.eye); }
 function setCoat(i) { applyCoat(COATS[i]); [...stageEl.querySelectorAll('#coats button')].forEach((b, n) => b.setAttribute('aria-pressed', n === i)); }
 function setWall(i) { stageEl.style.background = WALLS[i][1]; deskMat.color.set(WALLS[i][2]); [...stageEl.querySelectorAll('#walls button')].forEach((b, n) => b.setAttribute('aria-pressed', n === i)); }
 COATS.forEach((c, i) => { const b = document.createElement('button'); b.type = 'button'; b.innerHTML = `<span class="sw" style="background:${c.fur}"></span>${c.name}`; b.onclick = () => setCoat(i); $('coats').appendChild(b); });

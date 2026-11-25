@@ -661,12 +661,14 @@ function buildCoatButtons() {
     btn.className = "coat-btn";
     btn.dataset.coat = coat.id;
     const swatch = coat.pattern === "calico"
-      ? `linear-gradient(135deg, ${coat.fur} 52%, ${coat.patchA ?? "#e9973f"} 52%)`
+      ? `conic-gradient(${coat.fur} 0 40%, ${coat.patchA ?? "#e9973f"} 40% 70%, ${coat.patchB ?? "#1d1c1a"} 70%)`
       : coat.pattern === "tabby"
         ? `linear-gradient(180deg, ${coat.fur} 62%, ${coat.stripe ?? coat.fur} 62%)`
         : coat.pattern === "point"
           ? `radial-gradient(circle at 50% 58%, ${coat.tail ?? coat.paw} 0 30%, ${coat.fur} 38%)`
-          : coat.fur;
+          : coat.paw === coat.fur
+            ? coat.fur
+            : `linear-gradient(135deg, ${coat.fur} 55%, ${coat.paw} 55%)`;
     const sw = document.createElement("span");
     sw.className = "coat-swatch";
     sw.style.background = swatch;
