@@ -43,6 +43,7 @@
 - [隐私与安全](#隐私与安全)
 - [当前范围](#当前范围)
 - [发布](#发布)
+- [贡献者](#贡献者)
 - [开源协议](#开源协议)
 
 ## 功能特性
@@ -349,6 +350,12 @@ pnpm dev
 3. GitHub Actions 的 Release 工作流构建 Windows x64/ARM64 NSIS 与 macOS Intel/Apple Silicon DMG，并发布 Release，附 `SHA256SUMS.txt`。
 
 发版只走 tag 触发的一次构建；不要先手动运行 “Build bundles” 再打 tag。手动构建工作流只用于排障。
+
+## 贡献者
+
+<a href="https://github.com/7wdn/7paws/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=7wdn/7paws&max=300&columns=15" alt="7paws 贡献者" />
+</a>
 
 ## 开源协议
 
