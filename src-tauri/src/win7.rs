@@ -1,6 +1,5 @@
 #![cfg(all(windows, feature = "win7"))]
 
-// Native presenter adapted from KuroCat's MIT-licensed Windows 7 renderer.
 use crate::{config::save_settings, AppState};
 use std::cell::RefCell;
 use std::io::Write;

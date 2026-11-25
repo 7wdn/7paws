@@ -1,4 +1,3 @@
-/* Adapted from KuroCat's MIT-licensed Windows 7 COM shim. */
 typedef unsigned long long size_t;
 typedef int int32_t;
 
