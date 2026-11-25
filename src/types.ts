@@ -18,6 +18,7 @@ export interface CustomCat {
   patch: string;
   accent: string;
   eye: string;
+  eye2: string;
   pattern: CatPattern;
   spots: CatSpot[];
 }

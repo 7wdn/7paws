@@ -6,6 +6,7 @@ export interface CoatPalette {
   patch: string;
   line: string;
   eye: string;
+  eye2: string;
   whisker: string;
   whiskerOut: string;
   stripe: string;
@@ -52,6 +53,7 @@ export function buildCoatPalette(c: CustomCat): CoatPalette {
     patch: c.patch,
     line,
     eye: c.eye,
+    eye2: c.eye2 || c.eye,
     whisker,
     whiskerOut: line,
     stripe,

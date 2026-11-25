@@ -24,7 +24,7 @@ const back = color => new THREE.MeshBasicMaterial({ color, side: THREE.BackSide 
 
 /* ---------- materials that a coat preset recolours ---------- */
 const onFace = (color, k) => new THREE.MeshBasicMaterial({ color, polygonOffset: true, polygonOffsetFactor: -4 * k, polygonOffsetUnits: -4 * k });
-const M = { lid: onFace('#101010', 3), blush: flat('#f08f9c'), shut: onFace('#8b8f86', 1), fur: flat('#101010'), patch: flat('#101010'), line: back('#8b8f86'), eye: onFace('#b9d36b', 1), pupil: onFace('#0b0b0b', 2), whisker: flat('#f4f4ee'), whiskerOut: flat('#101010'), stripe: onFace('#101010', 1), inner: flat('#101010') };
+const M = { lid: onFace('#101010', 3), blush: flat('#f08f9c'), shut: onFace('#8b8f86', 1), fur: flat('#101010'), patch: flat('#101010'), line: back('#8b8f86'), eye: onFace('#b9d36b', 1), eye2: onFace('#b9d36b', 1), pupil: onFace('#0b0b0b', 2), whisker: flat('#f4f4ee'), whiskerOut: flat('#101010'), stripe: onFace('#101010', 1), inner: flat('#101010') };   // [7paws] eye2 = second iris for heterochromia
 
 /* ---------- desk, keyboard, mouse ---------- */
 const deskMat = flat('#e9ebb6'), deskEdge = flat('#1c1d1a');
@@ -257,7 +257,7 @@ function paintCoat(c) {
 add(head, ball(1, M.head, HEAD_R[0], HEAD_R[1], HEAD_R[2]), 0, 0, 0);
 const tongue = add(head, ball(1, new THREE.MeshBasicMaterial({ color: '#f08a98' }), 0.06, 0.085, 0.04), 0.02, -0.36, 0.6); tongue.visible = false;
 const muzzle = add(head, ball(1, M.patch, 0.13, 0.08, 0.1), 0, -0.4, 0.5);
-for (const k of ['eye', 'pupil', 'stripe', 'inner']) M[k].side = THREE.DoubleSide;
+for (const k of ['eye', 'eye2', 'pupil', 'stripe', 'inner']) M[k].side = THREE.DoubleSide;
 
 // Ears: a solid rounded form whose base sits inside the head, so the outline runs from head to ear without a step.
 const earR = spline([[0, 0.3], [0.12, 0.285], [0.32, 0.22], [0.48, 0.13], [0.56, 0.062], [0.588, 0]]), EAR_H = 0.588, EAR_T = 0.5;
@@ -292,7 +292,7 @@ function fillPatch(mesh, cx, cy, rx, ry, turn, lift) {
   pos.needsUpdate = true;
 }
 M.mouth = onFace('#d8667c', 2); const mouth = makePatch(M.mouth, 4); mouth.visible = false;
-const eyes = [-1, 1].map(s => ({ s, iris: makePatch(M.eye, 3), pupil: makePatch(M.pupil, 4), lid: makePatch(M.lid, 5), blush: makePatch(M.blush, 2) }));
+const eyes = [-1, 1].map(s => ({ s, iris: makePatch(s > 0 ? M.eye2 : M.eye, 3), pupil: makePatch(M.pupil, 4), lid: makePatch(M.lid, 5), blush: makePatch(M.blush, 2) }));   // [7paws] s > 0 is the viewer-right eye, using the optional eye2 colour
 const stripes = [-0.2, 0, 0.2].map(x => ({ x, mesh: makePatch(M.stripe, 3) }));
 
 // Whiskers: three separate hairs per side, each rooted at its own spot on the cheek; light over the face, coat-dark beyond it.
@@ -381,7 +381,7 @@ const COATS = [
 ];
 const WALLS = [['浅色桌面', 'transparent', '#e9ebb6'], ['深色桌面', '#1f2226', '#454c57'], ['蓝色桌面', '#2f5d8a', '#454c57'], ['照片桌面', 'linear-gradient(135deg,#3b2f4a,#b8693f 55%,#e9c46a)', '#454c57']];
 const coatLuma = hex => { const n = parseInt(hex.slice(1), 16); return (0.2126 * (n >> 16 & 255) + 0.7152 * (n >> 8 & 255) + 0.0722 * (n & 255)) / 255; };   // [7paws] brightness judged from the colour itself so photo-derived coats work too
-function applyCoat(c) { const furLum = coatLuma(c.fur); for (const k of ['fur', 'patch', 'line', 'eye', 'whisker', 'stripe', 'inner']) M[k].color.set(c[k]); M.body.color.set('#ffffff'); M.ear.color.set(c.ear || c.fur); paintCoat(c); M.lid.color.set(c.fur); whiskers.forEach(w => w.pivot.scale.setScalar(0.78)); { const pale = furLum > 0.78, o = pale ? '#b5b1a2' : '#f1eee2', w = pale ? 0.7 : 1; renderer.domElement.style.filter = [[w, 0], [-w, 0], [0, w], [0, -w]].map(([x, y]) => `drop-shadow(${x}px ${y}px 0 ${o})`).join(' '); } M.shut.color.set(furLum < 0.16 ? c.eye : c.line); M.whiskerOut.color.set(c.whiskerOut || c.line); muzzle.visible = false; chest.visible = false; hitColor.set(c.eye); }
+function applyCoat(c) { const furLum = coatLuma(c.fur); for (const k of ['fur', 'patch', 'line', 'eye', 'whisker', 'stripe', 'inner']) M[k].color.set(c[k]); M.eye2.color.set(c.eye2 || c.eye); M.body.color.set('#ffffff'); M.ear.color.set(c.ear || c.fur); paintCoat(c); M.lid.color.set(c.fur); whiskers.forEach(w => w.pivot.scale.setScalar(0.78)); { const pale = furLum > 0.78, o = pale ? '#b5b1a2' : '#f1eee2', w = pale ? 0.7 : 1; renderer.domElement.style.filter = [[w, 0], [-w, 0], [0, w], [0, -w]].map(([x, y]) => `drop-shadow(${x}px ${y}px 0 ${o})`).join(' '); } M.shut.color.set(furLum < 0.16 ? c.eye : c.line); M.whiskerOut.color.set(c.whiskerOut || c.line); muzzle.visible = false; chest.visible = false; hitColor.set(c.eye); }
 function setCoat(i) { applyCoat(COATS[i]); [...stageEl.querySelectorAll('#coats button')].forEach((b, n) => b.setAttribute('aria-pressed', n === i)); }
 function setWall(i) { stageEl.style.background = WALLS[i][1]; deskMat.color.set(WALLS[i][2]); [...stageEl.querySelectorAll('#walls button')].forEach((b, n) => b.setAttribute('aria-pressed', n === i)); }
 COATS.forEach((c, i) => { const b = document.createElement('button'); b.type = 'button'; b.innerHTML = `<span class="sw" style="background:${c.fur}"></span>${c.name}`; b.onclick = () => setCoat(i); $('coats').appendChild(b); });
@@ -589,7 +589,7 @@ function frame() {
   for (const e of eyes) {                                           // the eye keeps its shape; a fur-coloured lid slides over it and leaves a soft crescent
     // Closing: the eye squashes flat, then becomes one clean curved line (down-curve for a blink or sleep, arch when happy).
     const pet = dir < 0, shut = c > 0.7, h = iry * mix(1, pet ? 0.7 : 0.3, smooth(0, 0.8, c)), eyc = ey + (dir * h * (pet ? 0.84 : 0.7) - iry) * smooth(0.35, 0.7, c);   // the closed line rests half an eye below the eye's centre
-    e.iris.material = shut ? M.shut : M.eye;
+    e.iris.material = shut ? M.shut : (e.s > 0 ? M.eye2 : M.eye);
     fillPatch(e.iris, e.s * ex, eyc, er * (shut ? (pet ? 0.8 : 0.92) : 1), h, e.s * P.eyeTilt, 0.008);
     const prx = er * 0.3 * widen, dx = clamp(S.gazeX * er * 0.42, -(er * 0.9 - prx), er * 0.9 - prx);
     const room = h * Math.sqrt(Math.max(0, 1 - ((Math.abs(dx) + prx * 0.7) / er) ** 2));   // how tall the eye is where the pupil sits

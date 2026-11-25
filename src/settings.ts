@@ -65,7 +65,7 @@ const coatCodeImport = document.getElementById("coatCodeImport") as HTMLButtonEl
 const deleteCatBtn = document.getElementById("deleteCatBtn") as HTMLButtonElement;
 const colorSlotButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".color-slot"));
 
-type ColorSlot = keyof Pick<CustomCat, "fur" | "patch" | "accent" | "eye">;
+type ColorSlot = keyof Pick<CustomCat, "fur" | "patch" | "accent" | "eye" | "eye2">;
 
 let settings: AppSettings = { ...defaultSettings };
 let customCats: CustomCat[] = [];
@@ -74,6 +74,15 @@ let deleteArmedAt = 0;
 let appVersion = "dev";
 let reminderTextTimer: number | null = null;
 let reminderIntervalTimer: number | null = null;
+let photoPickerOpen = false;
+
+function setPhotoPickerOpen(open: boolean) {
+  if (photoPickerOpen === open) return;
+  photoPickerOpen = open;
+  // The picker is a native window, so the global mouse hook sees clicks in it
+  // as "outside the settings window"; tell Rust to hold off auto-closing.
+  if (isTauri) void invoke("set_settings_modal", { open }).catch(() => {});
+}
 
 function disarmDelete() {
   deleteArmedAt = 0;
@@ -800,6 +809,7 @@ async function createCat() {
     patch: "#fbe8c9",
     accent: "#c26a1f",
     eye: "#5c8a3a",
+    eye2: "#5c8a3a",
     pattern: "bicolor",
     spots: [],
   };
@@ -852,6 +862,7 @@ function catFromCode(raw: string): CustomCat | null {
       patch: str(parsed.patch, "#f8f6ef"),
       accent: str(parsed.accent, "#e9973f"),
       eye: str(parsed.eye, "#e2b93b"),
+      eye2: str(parsed.eye2, str(parsed.eye, "#e2b93b")),
       pattern,
       spots: Array.isArray(parsed.spots) ? (parsed.spots.slice(0, 24) as CatSpot[]) : [],
     };
@@ -1145,8 +1156,13 @@ function bindControls() {
     btn.addEventListener("click", () => openColorPopup(btn, btn.dataset.slot as ColorSlot));
   }
 
-  photoBtn.addEventListener("click", () => photoInput.click());
+  photoBtn.addEventListener("click", () => {
+    setPhotoPickerOpen(true);
+    photoInput.click();
+  });
+  photoInput.addEventListener("cancel", () => setPhotoPickerOpen(false));
   photoInput.addEventListener("change", async () => {
+    setPhotoPickerOpen(false);
     const file = photoInput.files?.[0];
     photoInput.value = "";
     if (!file) return;
@@ -1215,6 +1231,7 @@ async function boot() {
     });
   }
 
+  window.addEventListener("focus", () => setPhotoPickerOpen(false));
   window.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
     if (!updatePopup.classList.contains("hidden")) {

@@ -44,6 +44,7 @@ fn tool_definitions() -> Value {
                             "patch": { "type": "string", "description": "Second colour hex: tuxedo/bicolor patches, tabby belly, calico patch A" },
                             "accent": { "type": "string", "description": "Third colour hex used by calico patches and tail" },
                             "eye": { "type": "string", "description": "Iris hex, e.g. '#5c8a3a'" },
+                            "eye2": { "type": "string", "description": "Second iris hex for heterochromia; defaults to eye" },
                             "pattern": { "type": "string", "enum": ["solid", "bicolor", "tabby", "calico"] },
                             "spots": {
                                 "type": "array",
@@ -98,7 +99,8 @@ fn cat_schema_guide() -> Value {
             "fur": "Main coat colour. Outline, whiskers and the eye-closed line are derived from it automatically.",
             "patch": "Second colour. bicolor: patches (tuxedo bib/socks look). tabby: belly/muzzle tone. calico: first patch colour.",
             "accent": "Third colour, only used by calico (second patch colour, also the tail).",
-            "eye": "Iris colour."
+            "eye": "Iris colour.",
+            "eye2": "Optional second iris colour (heterochromia); omit or repeat eye for matching eyes."
         },
         "patterns": {
             "solid": "One colour; patch is ignored.",

@@ -63,6 +63,9 @@ pub struct CustomCat {
     pub patch: String,
     pub accent: String,
     pub eye: String,
+    /// Second iris colour for heterochromia; older cats.json files omit it.
+    #[serde(default)]
+    pub eye2: String,
     pub pattern: String,
     pub spots: Vec<CatSpot>,
 }
@@ -76,6 +79,7 @@ impl Default for CustomCat {
             patch: "#f8f6ef".to_string(),
             accent: "#e9973f".to_string(),
             eye: "#e2b93b".to_string(),
+            eye2: "#e2b93b".to_string(),
             pattern: "bicolor".to_string(),
             spots: Vec::new(),
         }
@@ -125,6 +129,9 @@ impl CustomCat {
         }
         if !is_hex_color(&self.eye) {
             self.eye = fallback.eye;
+        }
+        if !is_hex_color(&self.eye2) {
+            self.eye2 = self.eye.clone();
         }
         if !PATTERNS.contains(&self.pattern.as_str()) {
             self.pattern = fallback.pattern;

@@ -17,10 +17,10 @@ use config::{
     config_path, load_settings, save_settings, set_autostart, try_load_settings, AppSettings,
     MAX_SCALE, MIN_SCALE,
 };
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{
     AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, Size, State, WebviewWindow,
 };
@@ -31,6 +31,9 @@ pub const BASE_WIDTH_104: f64 = 740.0;
 pub const BASE_HEIGHT_104: f64 = 520.0;
 pub const SETTINGS_WIDTH: f64 = 244.0;
 pub const SETTINGS_HEIGHT: f64 = 516.0;
+/// Safety cap for the server-side modal guard: even if the webview never
+/// reports the picker closing, outside clicks close the window again after this.
+const SETTINGS_MODAL_TIMEOUT_MS: u64 = 10 * 60 * 1000;
 const BROWSER_ARGS: &str = if cfg!(all(windows, feature = "win7")) {
     "--autoplay-policy=no-user-gesture-required --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-timer-throttling --disable-features=CalculateNativeWinOcclusion"
 } else {
@@ -71,6 +74,9 @@ pub struct AppState {
     custom_cats: Arc<Mutex<Vec<cats::CustomCat>>>,
     dragging: Arc<AtomicBool>,
     hit_regions: Arc<Mutex<Vec<[f64; 4]>>>,
+    /// Epoch millis until which the settings window hosts a native dialog
+    /// (file picker) and must not be auto-closed by the global mouse hook.
+    settings_modal_until: Arc<AtomicU64>,
 }
 
 #[cfg(windows)]
@@ -573,11 +579,52 @@ fn point_in_rect(pos: PhysicalPosition<i32>, size: tauri::PhysicalSize<u32>, x: 
         && y <= (pos.y + size.height as i32) as f64
 }
 
+fn now_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+fn settings_modal_active(app: &AppHandle) -> bool {
+    app.state::<AppState>()
+        .settings_modal_until
+        .load(Ordering::Relaxed)
+        > now_millis()
+}
+
+#[cfg(windows)]
+fn settings_window_disabled(win: &WebviewWindow) -> bool {
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::IsWindowEnabled;
+    win.hwnd()
+        .map(|handle| unsafe { IsWindowEnabled(handle.0 as _) } == 0)
+        .unwrap_or(false)
+}
+
+/// Closes on outside clicks are only safe when no native dialog owns the
+/// settings window; destroying the webview underneath a live file picker can
+/// corrupt the heap.
+fn settings_auto_close_allowed(app: &AppHandle, win: &WebviewWindow) -> bool {
+    if settings_modal_active(app) {
+        return false;
+    }
+    #[cfg(windows)]
+    if settings_window_disabled(win) {
+        return false;
+    }
+    #[cfg(not(windows))]
+    let _ = win;
+    true
+}
+
 pub(crate) fn close_settings_if_clicked_outside(app: &AppHandle) {
     let Some(settings) = app.get_webview_window("settings") else {
         return;
     };
     if !settings.is_visible().unwrap_or(false) {
+        return;
+    }
+    if !settings_auto_close_allowed(app, &settings) {
         return;
     }
     let Some((cx, cy)) = cursor_pos_for(&settings) else {
@@ -610,6 +657,7 @@ pub(crate) fn close_settings_if_clicked_outside(app: &AppHandle) {
         if let Some(settings) = app.get_webview_window("settings") {
             if settings.is_visible().unwrap_or(false)
                 && !settings.is_focused().unwrap_or(true)
+                && settings_auto_close_allowed(&app, &settings)
             {
                 let _ = settings.destroy();
             }
@@ -645,6 +693,9 @@ fn show_and_place_settings_window(app: &AppHandle, win: &WebviewWindow) {
 }
 
 fn show_settings_window_blocking(app: &AppHandle) {
+    app.state::<AppState>()
+        .settings_modal_until
+        .store(0, Ordering::Relaxed);
     if let Some(win) = app.get_webview_window("settings") {
         show_and_place_settings_window(app, &win);
         return;
@@ -685,6 +736,16 @@ async fn close_settings(app: AppHandle) {
     if let Some(win) = app.get_webview_window("settings") {
         let _ = win.destroy();
     }
+}
+
+#[tauri::command]
+fn set_settings_modal(state: State<'_, AppState>, open: bool) {
+    let until = if open {
+        now_millis() + SETTINGS_MODAL_TIMEOUT_MS
+    } else {
+        0
+    };
+    state.settings_modal_until.store(until, Ordering::Relaxed);
 }
 
 #[tauri::command]
@@ -1093,6 +1154,7 @@ fn run_inner(_restarting: bool) {
     let settings = Arc::new(Mutex::new(initial.clone()));
     let dragging = Arc::new(AtomicBool::new(false));
     let hit_regions = Arc::new(Mutex::new(default_regions()));
+    let settings_modal_until = Arc::new(AtomicU64::new(0));
 
     let settings_setup = settings.clone();
     let cats_setup = custom_cats.clone();
@@ -1105,6 +1167,7 @@ fn run_inner(_restarting: bool) {
             custom_cats: custom_cats.clone(),
             dragging,
             hit_regions,
+            settings_modal_until,
         })
         .setup(move |app| {
             #[cfg(target_os = "macos")]
@@ -1176,6 +1239,7 @@ fn run_inner(_restarting: bool) {
             update_settings,
             open_settings,
             close_settings,
+            set_settings_modal,
             get_custom_cats,
             save_custom_cat,
             delete_custom_cat,
