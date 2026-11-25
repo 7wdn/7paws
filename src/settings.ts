@@ -72,6 +72,8 @@ let customCats: CustomCat[] = [];
 let coatGridKey = "";
 let deleteArmedAt = 0;
 let appVersion = "dev";
+let reminderTextTimer: number | null = null;
+let reminderIntervalTimer: number | null = null;
 
 function disarmDelete() {
   deleteArmedAt = 0;
@@ -602,7 +604,32 @@ async function extractColorsFromPhoto(
   };
 }
 
+function commitReminderText() {
+  void saveSettings({ reminderText: reminderTextInput.value });
+}
+
+function commitReminderInterval() {
+  const minutes = Math.floor(Number(reminderIntervalInput.value));
+  void saveSettings({
+    reminderIntervalMinutes: Number.isFinite(minutes) && minutes > 0 ? Math.min(minutes, 1440) : 1,
+  });
+}
+
+function flushReminderInputs() {
+  if (reminderTextTimer !== null) {
+    window.clearTimeout(reminderTextTimer);
+    reminderTextTimer = null;
+    commitReminderText();
+  }
+  if (reminderIntervalTimer !== null) {
+    window.clearTimeout(reminderIntervalTimer);
+    reminderIntervalTimer = null;
+    commitReminderInterval();
+  }
+}
+
 function hide() {
+  flushReminderInputs();
   closeDropdown();
   if (isTauri) {
     void invoke("close_settings");
@@ -961,14 +988,35 @@ function bindControls() {
   reminderEnabledInput.addEventListener("change", () => {
     void saveSettings({ reminderEnabled: reminderEnabledInput.checked });
   });
+  reminderTextInput.addEventListener("input", () => {
+    if (reminderTextTimer !== null) window.clearTimeout(reminderTextTimer);
+    reminderTextTimer = window.setTimeout(() => {
+      reminderTextTimer = null;
+      commitReminderText();
+    }, 300);
+  });
   reminderTextInput.addEventListener("change", () => {
-    void saveSettings({ reminderText: reminderTextInput.value });
+    if (reminderTextTimer !== null) {
+      window.clearTimeout(reminderTextTimer);
+      reminderTextTimer = null;
+    }
+    commitReminderText();
+  });
+  reminderIntervalInput.addEventListener("input", () => {
+    if (reminderIntervalTimer !== null) window.clearTimeout(reminderIntervalTimer);
+    reminderIntervalTimer = null;
+    if (!reminderIntervalInput.value.trim()) return;
+    reminderIntervalTimer = window.setTimeout(() => {
+      reminderIntervalTimer = null;
+      commitReminderInterval();
+    }, 300);
   });
   reminderIntervalInput.addEventListener("change", () => {
-    const minutes = Math.floor(Number(reminderIntervalInput.value));
-    void saveSettings({
-      reminderIntervalMinutes: Number.isFinite(minutes) && minutes > 0 ? minutes : 1,
-    });
+    if (reminderIntervalTimer !== null) {
+      window.clearTimeout(reminderIntervalTimer);
+      reminderIntervalTimer = null;
+    }
+    commitReminderInterval();
   });
 
   mcpEnabledInput.addEventListener("change", () => {
@@ -1183,6 +1231,7 @@ async function boot() {
     }
     hide();
   });
+  window.addEventListener("blur", flushReminderInputs);
   document.addEventListener("pointerdown", (e) => {
     const target = e.target as Node;
     if (openSelect && !(dropdownPopup.contains(target) || openSelect.contains(target))) {

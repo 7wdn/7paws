@@ -81,6 +81,7 @@ impl AppSettings {
         self.opacity = self.opacity.clamp(0.1, 1.0);
         self.sleep_minutes = self.sleep_minutes.min(120);
         self.reminder_interval_minutes = self.reminder_interval_minutes.clamp(1, 1440);
+        self.reminder_text = self.reminder_text.chars().take(120).collect();
         // Custom coat ids are validated against cats.json by the app; here only the shape is checked.
         if !COATS.contains(&self.coat.as_str()) && !is_slug(&self.coat) {
             self.coat = "tuxedo".to_string();
