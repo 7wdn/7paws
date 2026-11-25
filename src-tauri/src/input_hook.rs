@@ -122,6 +122,8 @@ pub fn start_global_hooks(app: AppHandle, settings: Arc<Mutex<AppSettings>>) {
         let mut pressed_at: [Instant; 1024] = [Instant::now(); 1024];
         let mut last_mouse_emit = Instant::now() - Duration::from_secs(1);
         let mut last_wheel_emit = Instant::now() - Duration::from_secs(1);
+        #[cfg(windows)]
+        let mut last_mouse_xy: Option<(i32, i32)> = None;
 
         while let Ok(msg) = rx.recv() {
             match msg {
@@ -212,9 +214,22 @@ pub fn start_global_hooks(app: AppHandle, settings: Arc<Mutex<AppSettings>>) {
                     );
                 }
                 RawHookMsg::MouseMoved { x, y } => {
+                    // Windows/macOS sensor jitter otherwise wakes a resting cat and keeps it at full FPS.
+                    // macOS reports 0,0 here, so the filter only applies where the point is real.
+                    #[cfg(windows)]
+                    if let Some((lx, ly)) = last_mouse_xy {
+                        if (x - lx).abs() <= 1 && (y - ly).abs() <= 1 {
+                            continue;
+                        }
+                    }
                     let now = Instant::now();
-                    if now.duration_since(last_mouse_emit) >= Duration::from_millis(16) {
+                    // 30 Hz is enough for the eye and paw springs; it halves the IPC of high-polling mice.
+                    if now.duration_since(last_mouse_emit) >= Duration::from_millis(33) {
                         last_mouse_emit = now;
+                        #[cfg(windows)]
+                        {
+                            last_mouse_xy = Some((x, y));
+                        }
                         let (nx, ny) = normalize_window_point(&app, x, y);
                         let _ = app.emit("cat-input", CatInput::MouseMoved { nx, ny });
                     }

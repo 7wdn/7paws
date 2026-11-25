@@ -4,7 +4,7 @@ const stageEl = host, hintEl = document.createElement('div');
 // The look-development page had on-page controls; here they are detached stand-ins so the shared drawing code stays identical.
 const stubs = {}, $ = id => stubs[id] || (stubs[id] = document.createElement(id.startsWith('btn') ? 'button' : 'div'));
 const offs = [], on = (type, fn, opt) => { window.addEventListener(type, fn, opt); offs.push(() => window.removeEventListener(type, fn, opt)); };
-let dead = false, raf = 0, followKeys = false, showKeyLabels = true, idleActions = options.idleActions !== false, lastStrikeAt = -1e9, idleTick = 0, afterRender = null;
+let dead = false, raf = 0, followKeys = false, showKeyLabels = true, idleActions = options.idleActions !== false, lastStrikeAt = -1e9, afterRender = null;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), mix = (a, b, t) => a + (b - a) * t, rnd = (a, b) => a + Math.random() * (b - a);
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -442,7 +442,7 @@ const sleeping = t => S.sleepAt && t > S.sleepAt;
 if (VIEW.get('eyes') === 'shut') { S.blinkUntil = 1e13; S.blinkAt = 1e14; } if (VIEW.get('eyes') === 'happy') S.happyUntil = 1e13; if (VIEW.get('coat')) setTimeout(() => setCoat(+VIEW.get('coat')), 0); if (VIEW.get('wall')) setTimeout(() => setWall(+VIEW.get('wall')), 0);   // preview switches
 let SLEEP_AFTER = VIEW.get('sleep') ? +VIEW.get('sleep') * 1000 : (options.sleepMinutes || 5) * 60000;              // falls asleep by itself after this long without keys or mouse
 const zzz = document.createElement('div'); zzz.className = 'zzz'; zzz.innerHTML = '<span>Z</span><span>Z</span><span>Z</span>'; stageEl.appendChild(zzz);
-const wake = t => { if (S.sleepAt) { S.sleepAt = 0; S.blinkUntil = t + 320; S.blinkAt = t + 620; S.wokeAt = t; S.bounceAt = t + 150; } S.lastInput = t; S.act = null; S.nextAct = t + rnd(6000, 11000); };
+const wake = t => { if (S.sleepAt) { S.sleepAt = 0; S.blinkUntil = t + 320; S.blinkAt = t + 620; S.wokeAt = t; S.bounceAt = t + 150; } S.lastInput = t; S.act = null; S.nextAct = t + rnd(6000, 11000); resumeFrameLoop(); };
 
 function land(p, t) {
   p.landed = true; p.landedAt = t; S.thump = 1; S.thumpSide = p.side === 'L' ? -1 : 1; S.jolt = t;
@@ -517,10 +517,20 @@ function runDemo(t) {
 /* ---------- frame ---------- */
 const shoulderW = V(0, 0, 0), proj = V(0, 0, 0), tmpGoal = V(0, 0, 0);
 let renderTimer = 0, debugTicks = 0;
+// [7paws] frame budget: high-refresh screens do not need a redraw per vsync, and a resting cat
+// needs far fewer than an active one. Paint at 60 FPS when busy, ~18 FPS idle, ~12 FPS asleep.
+let pauseTimer = 0, paused = false, refreshMs = 16.7, refreshSamples = 0, lastDirectFrame = 0;
 const manualRender = !!options.manualRender;
 const scheduleFrame = () => { if (!manualRender) raf = requestAnimationFrame(frame); };
+// [7paws] input during a pause must not wait for the remaining delay
+function resumeFrameLoop() {
+  if (!paused || !pauseTimer) return;
+  window.clearTimeout(pauseTimer); pauseTimer = 0; paused = false;
+  if (!dead) raf = requestAnimationFrame(frame);
+}
 function frame() {
   const t = performance.now(), realDt = Math.min(1, (t - S.last) / 1000), dt = Math.min(0.05, realDt); S.last = t;
+  if (!manualRender && lastDirectFrame > 0 && refreshSamples < 6) { const gap = t - lastDirectFrame; if (gap >= 3.2 && gap <= 25) { refreshMs = refreshSamples === 0 ? gap : Math.min(refreshMs, gap); refreshSamples += 1; } }
   const ease = k => 1 - Math.exp(-dt * k);
   runDemo(t);
   if (!S.sleepAt && !demo && t - S.lastInput > SLEEP_AFTER) S.sleepAt = t;
@@ -536,7 +546,9 @@ function frame() {
   S.thump *= Math.exp(-dt * 13);
 
   if (dead) return;
-  { const now = performance.now(); if (now - Math.max(S.lastKey, S.lastMouse, S.wokeAt || 0) > 2500 && !S.pet && now >= S.happyUntil && (idleTick = (idleTick + 1) % (asleep ? 4 : 2))) { scheduleFrame(); return; } }   // [7paws] idle: half rate; asleep: quarter rate
+  // [7paws] busy drives the frame rate; idle actions, blinks and sleep Zzz stay at the low rate.
+  const settling = asleep && t - (S.sleepAt || 0) < 900;
+  const busy = settling || (!asleep && (t - S.lastKey < 3000 || t - S.lastMouse < 2400 || S.pet || t < S.happyUntil || mouseOn || mousing || S.chips.length > 0));
   const w = stageEl.clientWidth, h = stageEl.clientHeight; if (!w || !h) { scheduleFrame(); return; }
   zzz.style.fontSize = (w * 0.063) + 'px';
   if (renderer.domElement.width !== Math.round(w * renderer.getPixelRatio()) || renderer.domElement.height !== Math.round(h * renderer.getPixelRatio())) { renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = w / h < 1 ? 38 : 31; camera.updateProjectionMatrix(); }
@@ -647,7 +659,17 @@ function frame() {
     proj.set(c.k.x, 0.75, c.k.z).project(camera); c.el.style.left = ((proj.x + 1) / 2 * w) + 'px'; c.el.style.top = ((1 - proj.y) / 2 * h - out * 8) + 'px'; c.el.style.opacity = String(Math.min(1, (t - c.born) / 80) * (1 - out)); return true; });
   // [7paws] Win7 capture must run before the WebGL drawing buffer is cleared.
   if (afterRender) afterRender();
-  scheduleFrame();
+  if (manualRender) return;
+  // [7paws] a ~60Hz screen can follow vsync directly; faster screens are held to 60 FPS.
+  // The pause leaves room for this frame's own work plus the wait for the next vsync.
+  if (busy && (refreshSamples < 6 || refreshMs >= 13.5)) { paused = false; lastDirectFrame = t; raf = requestAnimationFrame(frame); return; }
+  lastDirectFrame = 0;
+  const spentMs = performance.now() - t;
+  const budgetMs = busy ? 16.7 : asleep ? 85 : 55;
+  const waitMs = Math.max(4, Math.round(budgetMs - spentMs - refreshMs * 0.35));
+  raf = 0;
+  paused = !busy;
+  pauseTimer = window.setTimeout(() => { pauseTimer = 0; paused = false; raf = requestAnimationFrame(frame); }, waitMs);
 }
 // A coat is named by its id; an unknown id falls back to the first coat.
 const coatIndex = id => Math.max(0, COATS.findIndex(c => c.id === id));
@@ -802,6 +824,6 @@ return {
   state() { const t = performance.now(); return sleeping(t) ? 'sleeping' : S.pet || t < S.happyUntil ? 'petting' : t - S.lastKey < 3000 ? 'typing' : mouseGroup.visible && t - S.lastMouse < 2200 ? 'mouse' : 'idle'; },
   idleAction() { return S.act || ''; },
   fastForwardToSleep() { S.sleepAt = performance.now(); S.lastKey = S.lastMouse = -1e9; },
-  destroy() { dead = true; afterRender = null; clearInterval(letGo); clearInterval(renderTimer); cancelAnimationFrame(raf); offs.forEach(f => f()); S.chips.forEach(c => c.el.remove()); zzz.remove(); renderer.domElement.remove(); renderer.dispose(); },
+  destroy() { dead = true; afterRender = null; clearInterval(letGo); clearInterval(renderTimer); clearTimeout(pauseTimer); cancelAnimationFrame(raf); offs.forEach(f => f()); S.chips.forEach(c => c.el.remove()); zzz.remove(); renderer.domElement.remove(); renderer.dispose(); },
 };
 };

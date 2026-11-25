@@ -319,20 +319,25 @@ fn start_hit_test_loop(
 ) {
     thread::spawn(move || {
         let mut last_ignore: Option<bool> = None;
+        let mut sleep_ms: u64 = 25;
 
         loop {
-            thread::sleep(Duration::from_millis(25));
+            thread::sleep(Duration::from_millis(sleep_ms));
 
             let Some(win) = app.get_webview_window("main") else {
+                sleep_ms = 120;
                 continue;
             };
             if !main_window_is_visible(&app) {
+                sleep_ms = 120;
                 continue;
             }
             let Some((cx, cy)) = cursor_pos_for(&win) else {
+                sleep_ms = 50;
                 continue;
             };
             let Some((px, py, pw, ph)) = main_window_rect(&app) else {
+                sleep_ms = 50;
                 continue;
             };
 
@@ -376,6 +381,11 @@ fn start_hit_test_loop(
                 }
                 last_ignore = Some(should_ignore);
             }
+
+            // Poll fast only while the cursor is at or near the cat; a resting cursor
+            // elsewhere does not need 40 wakeups per second.
+            let near = rx >= -0.15 && rx <= 1.15 && ry >= -0.15 && ry <= 1.15;
+            sleep_ms = if forced || near { 25 } else { 50 };
         }
     });
 }

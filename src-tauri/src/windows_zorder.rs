@@ -342,6 +342,8 @@ pub fn start_guard(app: AppHandle, settings: Arc<Mutex<AppSettings>>, dragging: 
         let mut last_foreground = 0isize;
         let mut foreground_attempts = 0u32;
         let mut last_reassert = Instant::now() - Duration::from_secs(10);
+        let mut last_enum_check = Instant::now() - Duration::from_secs(2);
+        let mut foreground_just_changed = true;
 
         loop {
             thread::sleep(Duration::from_millis(150));
@@ -349,6 +351,7 @@ pub fn start_guard(app: AppHandle, settings: Arc<Mutex<AppSettings>>, dragging: 
             if dragging.load(Ordering::Relaxed) || settings_window_open(&app) {
                 last_foreground = 0;
                 foreground_attempts = 0;
+                foreground_just_changed = true;
                 continue;
             }
             let always_on_top = settings
@@ -358,12 +361,15 @@ pub fn start_guard(app: AppHandle, settings: Arc<Mutex<AppSettings>>, dragging: 
             if !always_on_top || !presenter_is_visible(&app) {
                 last_foreground = 0;
                 foreground_attempts = 0;
+                foreground_just_changed = true;
                 continue;
             }
             let Some(our_hwnd) = presenter_hwnd(&app) else {
+                foreground_just_changed = true;
                 continue;
             };
             if is_iconic(our_hwnd) {
+                foreground_just_changed = true;
                 continue;
             }
 
@@ -371,16 +377,30 @@ pub fn start_guard(app: AppHandle, settings: Arc<Mutex<AppSettings>>, dragging: 
             if foreground as isize != last_foreground {
                 last_foreground = foreground as isize;
                 foreground_attempts = 0;
+                foreground_just_changed = true;
                 last_reassert = Instant::now() - Duration::from_secs(10);
             }
 
             let lost_topmost = !is_topmost(our_hwnd);
+            // EnumWindows is the expensive part; run it on foreground changes, while
+            // recovering, or occasionally as a safety net instead of every tick.
+            let run_enum = foreground_just_changed
+                || foreground_attempts > 0
+                || last_enum_check.elapsed() >= Duration::from_millis(900);
             let foreground_above = !lost_topmost
+                && run_enum
                 && !foreground.is_null()
                 && foreground != our_hwnd
                 && window_is_above(foreground, our_hwnd);
+            if run_enum {
+                last_enum_check = Instant::now();
+            }
+            foreground_just_changed = false;
+
             if !lost_topmost && !foreground_above {
-                foreground_attempts = 0;
+                if run_enum {
+                    foreground_attempts = 0;
+                }
                 continue;
             }
 
