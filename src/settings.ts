@@ -30,6 +30,9 @@ const purrPetInput = document.getElementById("purrPet") as HTMLInputElement;
 const purrSleepInput = document.getElementById("purrSleep") as HTMLInputElement;
 const idleActionsInput = document.getElementById("idleActions") as HTMLInputElement;
 const labelsInput = document.getElementById("showKeyLabels") as HTMLInputElement;
+const reminderEnabledInput = document.getElementById("reminderEnabled") as HTMLInputElement;
+const reminderTextInput = document.getElementById("reminderText") as HTMLInputElement;
+const reminderIntervalInput = document.getElementById("reminderInterval") as HTMLInputElement;
 const mcpEnabledInput = document.getElementById("mcpEnabled") as HTMLInputElement;
 const mcpClientSelect = document.getElementById("mcpClientSelect") as HTMLButtonElement;
 const mcpClientLabel = mcpClientSelect.querySelector(".dropdown-label") as HTMLSpanElement;
@@ -69,6 +72,8 @@ let customCats: CustomCat[] = [];
 let coatGridKey = "";
 let deleteArmedAt = 0;
 let appVersion = "dev";
+let reminderTextTimer: number | null = null;
+let reminderIntervalTimer: number | null = null;
 
 function disarmDelete() {
   deleteArmedAt = 0;
@@ -599,7 +604,32 @@ async function extractColorsFromPhoto(
   };
 }
 
+function commitReminderText() {
+  void saveSettings({ reminderText: reminderTextInput.value });
+}
+
+function commitReminderInterval() {
+  const minutes = Math.floor(Number(reminderIntervalInput.value));
+  void saveSettings({
+    reminderIntervalMinutes: Number.isFinite(minutes) && minutes > 0 ? Math.min(minutes, 1440) : 1,
+  });
+}
+
+function flushReminderInputs() {
+  if (reminderTextTimer !== null) {
+    window.clearTimeout(reminderTextTimer);
+    reminderTextTimer = null;
+    commitReminderText();
+  }
+  if (reminderIntervalTimer !== null) {
+    window.clearTimeout(reminderIntervalTimer);
+    reminderIntervalTimer = null;
+    commitReminderInterval();
+  }
+}
+
 function hide() {
+  flushReminderInputs();
   closeDropdown();
   if (isTauri) {
     void invoke("close_settings");
@@ -698,6 +728,11 @@ function syncControls() {
   purrSleepInput.checked = settings.purrSleep;
   idleActionsInput.checked = settings.idleActions;
   labelsInput.checked = settings.showKeyLabels;
+  reminderEnabledInput.checked = settings.reminderEnabled;
+  if (document.activeElement !== reminderTextInput) reminderTextInput.value = settings.reminderText;
+  if (document.activeElement !== reminderIntervalInput) {
+    reminderIntervalInput.value = String(settings.reminderIntervalMinutes);
+  }
   mcpEnabledInput.checked = settings.mcpEnabled;
   syncMcpClient();
   syncCoatGrid();
@@ -950,6 +985,40 @@ function bindControls() {
     void saveSettings({ showKeyLabels: labelsInput.checked });
   });
 
+  reminderEnabledInput.addEventListener("change", () => {
+    void saveSettings({ reminderEnabled: reminderEnabledInput.checked });
+  });
+  reminderTextInput.addEventListener("input", () => {
+    if (reminderTextTimer !== null) window.clearTimeout(reminderTextTimer);
+    reminderTextTimer = window.setTimeout(() => {
+      reminderTextTimer = null;
+      commitReminderText();
+    }, 300);
+  });
+  reminderTextInput.addEventListener("change", () => {
+    if (reminderTextTimer !== null) {
+      window.clearTimeout(reminderTextTimer);
+      reminderTextTimer = null;
+    }
+    commitReminderText();
+  });
+  reminderIntervalInput.addEventListener("input", () => {
+    if (reminderIntervalTimer !== null) window.clearTimeout(reminderIntervalTimer);
+    reminderIntervalTimer = null;
+    if (!reminderIntervalInput.value.trim()) return;
+    reminderIntervalTimer = window.setTimeout(() => {
+      reminderIntervalTimer = null;
+      commitReminderInterval();
+    }, 300);
+  });
+  reminderIntervalInput.addEventListener("change", () => {
+    if (reminderIntervalTimer !== null) {
+      window.clearTimeout(reminderIntervalTimer);
+      reminderIntervalTimer = null;
+    }
+    commitReminderInterval();
+  });
+
   mcpEnabledInput.addEventListener("change", () => {
     void saveSettings({ mcpEnabled: mcpEnabledInput.checked });
   });
@@ -1162,6 +1231,7 @@ async function boot() {
     }
     hide();
   });
+  window.addEventListener("blur", flushReminderInputs);
   document.addEventListener("pointerdown", (e) => {
     const target = e.target as Node;
     if (openSelect && !(dropdownPopup.contains(target) || openSelect.contains(target))) {
