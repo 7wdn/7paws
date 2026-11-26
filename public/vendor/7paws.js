@@ -492,9 +492,14 @@ const hitExpand = objs => { hitBox.makeEmpty(); for (const o of objs) hitBox.exp
 let demo = false;
 const stopDemo = () => { if (!demo) return; demo = false; $('btnDemo').textContent = '播放演示'; hintEl.textContent = '正在跟随你的键盘'; [...S.down.keys()].forEach(keyUp); };
 let lastPointer = null;
+// [7paws] Screen Y grows downward; moving toward the keyboard's top rows increases world Z.
+const nudgeMouse = (dx, dy) => {
+  S.wigX = clamp(S.wigX + dx, -0.16, 0.16);
+  S.wigZ = clamp(S.wigZ - dy, -0.12, 0.12);
+};
 on('pointermove', e => { const r = stageEl.getBoundingClientRect(); S.pointer = { x: (e.clientX - r.left) / r.width * 2 - 1, y: (e.clientY - r.top) / r.height * 2 - 1 };
   if (e.pointerType === 'touch') return;
-  if (lastPointer) { const dx = e.clientX - lastPointer.x, dy = e.clientY - lastPointer.y; if (Math.abs(dx) + Math.abs(dy) > 2) { const t = performance.now(); wake(t); S.lastMouse = t; S.wigX = clamp(S.wigX + dx * 0.004, -0.16, 0.16); S.wigZ = clamp(S.wigZ + dy * 0.004, -0.12, 0.12); } }
+  if (lastPointer) { const dx = e.clientX - lastPointer.x, dy = e.clientY - lastPointer.y; if (Math.abs(dx) + Math.abs(dy) > 2) { const t = performance.now(); wake(t); S.lastMouse = t; nudgeMouse(dx * 0.004, dy * 0.004); } }
   lastPointer = { x: e.clientX, y: e.clientY }; });
 // Only a press on the head is a pet: the eyes arch shut and the head leans into the hand for as long as it is held.
 const petRay = new THREE.Raycaster(), petAt = new THREE.Vector2();
@@ -793,10 +798,7 @@ return {
     wake(t);
     S.lastMouse = t;
   },
-  nudgeMouse(dx, dy) {
-    S.wigX = clamp(S.wigX + dx, -0.16, 0.16);
-    S.wigZ = clamp(S.wigZ + dy, -0.12, 0.12);
-  },
+  nudgeMouse,
   setInput(keySet, buttonSet) {
     for (const code of shownKeys) if (!keySet.has(code)) { keyUp(code); downAt.delete(code); }
     for (const code of keySet) if (!shownKeys.has(code)) { keyDown(code); downAt.set(code, performance.now()); }
