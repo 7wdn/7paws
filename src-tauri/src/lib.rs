@@ -31,6 +31,8 @@ pub const BASE_WIDTH: f64 = 660.0;
 pub const BASE_HEIGHT: f64 = 480.0;
 pub const BASE_WIDTH_104: f64 = 740.0;
 pub const BASE_HEIGHT_104: f64 = 520.0;
+pub const BASE_WIDTH_98: f64 = 720.0;
+pub const BASE_HEIGHT_98: f64 = 510.0;
 pub const SETTINGS_WIDTH: f64 = 244.0;
 pub const SETTINGS_HEIGHT: f64 = 516.0;
 /// Safety cap for the server-side modal guard: even if the webview never
@@ -132,6 +134,8 @@ fn acquire_single_instance(retry_until_available: bool) -> Option<SingleInstance
 fn base_dimensions(layout: &str) -> (f64, f64) {
     if layout == "104" {
         (BASE_WIDTH_104, BASE_HEIGHT_104)
+    } else if layout == "98" {
+        (BASE_WIDTH_98, BASE_HEIGHT_98)
     } else {
         (BASE_WIDTH, BASE_HEIGHT)
     }
