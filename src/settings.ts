@@ -98,6 +98,7 @@ interface Choice {
 const layoutChoices: Choice[] = [
   { value: "65", label: "65% 紧凑" },
   { value: "104", label: "104 键全尺寸" },
+  { value: "98", label: "98 键紧凑" },
 ];
 const sleepChoices: Choice[] = [
   { value: "1", label: "1 分钟" },
@@ -960,7 +961,7 @@ function bindControls() {
       layoutSelect,
       layoutChoices,
       () => settings.keyboardLayout,
-      (value) => void saveSettings({ keyboardLayout: value === "104" ? "104" : "65" }),
+      (value) => void saveSettings({ keyboardLayout: value === "104" ? "104" : value === "98" ? "98" : "65" }),
     );
   });
 

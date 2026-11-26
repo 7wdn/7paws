@@ -130,6 +130,70 @@ const KEYS_104 = [
   K('NumpadDecimal', '.', NUM_X + 2, 5.25, 1),
 ];
 
+// 98-key: TKL main block + right island (Home/Ins/PgUp/PgDn) + numpad + a small
+// arrow cluster tucked between the main block and the numpad.
+const KEYS_98 = [
+  // F row
+  K('Escape', 'Esc', 0, 0, 1, { accent: 'accent' }),
+  K('F1', 'F1', 2, 0), K('F2', 'F2', 3, 0), K('F3', 'F3', 4, 0), K('F4', 'F4', 5, 0),
+  K('F5', 'F5', 6.5, 0), K('F6', 'F6', 7.5, 0), K('F7', 'F7', 8.5, 0), K('F8', 'F8', 9.5, 0),
+  K('F9', 'F9', 11, 0), K('F10', 'F10', 12, 0), K('F11', 'F11', 13, 0), K('F12', 'F12', 14, 0),
+  K('Home', 'Home', 17.25, 0, 1, { accent: 'mod' }),
+  K('Insert', 'Ins', 18.25, 0, 1, { accent: 'mod' }),
+  K('PageUp', 'PgUp', 19.25, 0, 1, { accent: 'mod' }),
+  K('PageDown', 'PgDn', 20.25, 0, 1, { accent: 'mod' }),
+  // number row
+  K('Backquote', '`', 0, 1.25, 1, { accent: 'plain' }),
+  K('Digit1', '1', 1, 1.25), K('Digit2', '2', 2, 1.25), K('Digit3', '3', 3, 1.25),
+  K('Digit4', '4', 4, 1.25), K('Digit5', '5', 5, 1.25), K('Digit6', '6', 6, 1.25),
+  K('Digit7', '7', 7, 1.25), K('Digit8', '8', 8, 1.25), K('Digit9', '9', 9, 1.25),
+  K('Digit0', '0', 10, 1.25), K('Minus', '-', 11, 1.25), K('Equal', '=', 12, 1.25),
+  K('Backspace', '⌫', 13, 1.25, 2),
+  K('NumLock', 'Num', 17.25, 1.25, 1, { accent: 'mod' }),
+  K('NumpadDivide', '/', 18.25, 1.25, 1, { accent: 'mod' }),
+  K('NumpadMultiply', '*', 19.25, 1.25, 1, { accent: 'mod' }),
+  K('NumpadSubtract', '-', 20.25, 1.25, 1, { accent: 'mod' }),
+  // QWERTY row
+  K('Tab', '⇥', 0, 2.25, 1.5),
+  K('KeyQ', 'Q', 1.5, 2.25), K('KeyW', 'W', 2.5, 2.25), K('KeyE', 'E', 3.5, 2.25),
+  K('KeyR', 'R', 4.5, 2.25), K('KeyT', 'T', 5.5, 2.25), K('KeyY', 'Y', 6.5, 2.25),
+  K('KeyU', 'U', 7.5, 2.25), K('KeyI', 'I', 8.5, 2.25), K('KeyO', 'O', 9.5, 2.25),
+  K('KeyP', 'P', 10.5, 2.25), K('BracketLeft', '[', 11.5, 2.25), K('BracketRight', ']', 12.5, 2.25),
+  K('Backslash', '\\', 13.5, 2.25, 1.5),
+  K('Numpad7', '7', 17.25, 2.25), K('Numpad8', '8', 18.25, 2.25), K('Numpad9', '9', 19.25, 2.25),
+  K('NumpadAdd', '+', 20.25, 2.25, 1, { accent: 'mod', rowSpan: 2 }),
+  // home row
+  K('CapsLock', '⇪', 0, 3.25, 1.75),
+  K('KeyA', 'A', 1.75, 3.25), K('KeyS', 'S', 2.75, 3.25), K('KeyD', 'D', 3.75, 3.25),
+  K('KeyF', 'F', 4.75, 3.25), K('KeyG', 'G', 5.75, 3.25), K('KeyH', 'H', 6.75, 3.25),
+  K('KeyJ', 'J', 7.75, 3.25), K('KeyK', 'K', 8.75, 3.25), K('KeyL', 'L', 9.75, 3.25),
+  K('Semicolon', ';', 10.75, 3.25), K('Quote', "'", 11.75, 3.25),
+  K('Enter', '⏎', 12.75, 3.25, 2.25, { accent: 'accent' }),
+  K('Numpad4', '4', 17.25, 3.25), K('Numpad5', '5', 18.25, 3.25), K('Numpad6', '6', 19.25, 3.25),
+  // shift row
+  K('ShiftLeft', '⇧', 0, 4.25, 2.25),
+  K('KeyZ', 'Z', 2.25, 4.25), K('KeyX', 'X', 3.25, 4.25), K('KeyC', 'C', 4.25, 4.25),
+  K('KeyV', 'V', 5.25, 4.25), K('KeyB', 'B', 6.25, 4.25), K('KeyN', 'N', 7.25, 4.25),
+  K('KeyM', 'M', 8.25, 4.25), K('Comma', ',', 9.25, 4.25), K('Period', '.', 10.25, 4.25),
+  K('Slash', '/', 11.25, 4.25), K('ShiftRight', '⇧', 12.25, 4.25, 2.75),
+  K('ArrowUp', '↑', 15.7, 4.25, 0.7, { accent: 'mod' }),
+  K('Numpad1', '1', 17.25, 4.25), K('Numpad2', '2', 18.25, 4.25), K('Numpad3', '3', 19.25, 4.25),
+  K('NumpadEnter', '↵', 20.25, 4.25, 1, { accent: 'accent', rowSpan: 2 }),
+  // bottom row
+  K('ControlLeft', 'Ctrl', 0, 5.25, 1.25),
+  K('MetaLeft', 'Win', 1.25, 5.25, 1.25),
+  K('AltLeft', 'Alt', 2.5, 5.25, 1.25),
+  K('Space', '␣', 3.75, 5.25, 6.25, { accent: 'plain' }),
+  K('AltRight', 'Alt', 10, 5.25, 1.25),
+  K('Fn', 'Fn', 11.25, 5.25, 1.25, { accent: 'mod' }),
+  K('ControlRight', 'Ctrl', 12.5, 5.25, 1.25),
+  K('ArrowLeft', '←', 15.0, 5.25, 0.7, { accent: 'mod' }),
+  K('ArrowDown', '↓', 15.7, 5.25, 0.7, { accent: 'mod' }),
+  K('ArrowRight', '→', 16.4, 5.25, 0.7, { accent: 'mod' }),
+  K('Numpad0', '0', 17.25, 5.25, 2),
+  K('NumpadDecimal', '.', 19.25, 5.25, 1),
+];
+
 const LAYOUTS = {};
 function buildLayout(id, totalUnits, totalRows, specs) {
   const group = new THREE.Group(); scene.add(group);
@@ -155,12 +219,14 @@ function buildLayout(id, totalUnits, totalRows, specs) {
 }
 buildLayout('65', 15, 5, specsFromRows(ROWS));
 buildLayout('104', 22.7, 6.25, KEYS_104);
+buildLayout('98', 21.5, 6.25, KEYS_98);
 let activeLayout = LAYOUTS['65'];
 let board = activeLayout.group;
 let keys = activeLayout.keys;
 let MOUSE_AT = activeLayout.mouseAt.clone();
 let showKeyboard = true;
 LAYOUTS['104'].group.visible = false;
+LAYOUTS['98'].group.visible = false;
 const mouseGroup = new THREE.Group(); mouseGroup.position.copy(MOUSE_AT); scene.add(mouseGroup);
 // Which paw works the mouse, and which way the desk set is laid out. The picture mirrors its owner: a mouse in the owner's right
 // hand sits on the left of the picture. For a left-handed mouse the keyboard and mouse swap sides, still centred on the cat together.
@@ -175,7 +241,7 @@ function setHanded(leftMouse) {
   MOUSE_AT.copy(activeLayout.mouseAt);
 }
 function applyLayout(id) {
-  const next = id === '104' ? LAYOUTS['104'] : LAYOUTS['65'];
+  const next = LAYOUTS[id] || LAYOUTS['65'];
   if (next === activeLayout) { next.group.visible = showKeyboard; return; }
   [...S.down.keys()].forEach(keyUp);
   shownKeys = new Set(); downAt.clear();
