@@ -437,7 +437,7 @@ $('btnCopy').onclick = () => { const out = $('shapeOut'), note = $('copied'); ou
 const RISE = 30, FALL = 46, STRIKE = RISE + FALL;
 const S = { last: performance.now(), lastKey: -1e9, lastMouse: -1e9, lastInput: performance.now(), sleepAt: 0, down: new Map(), thump: 0, thumpSide: 0, jolt: -1e9, rate: 0,
   turn: 0, nod: 0, tilt: 0, lid: 0, blinkAt: performance.now() + 2500, blinkUntil: 0, happyUntil: 0, bounceAt: -1e9, act: null, actUntil: 0, nextAct: performance.now() + 6000, loaf: 0, curl: 0,
-  gazeX: 0, gazeY: 0, pointer: null, phase: 0, lastSide: 'L', alt: 'L', spin: 0, spinning: false, mouseDown: false, wigX: 0, wigZ: 0, lidDir: 1, mouseLean: 0, sx: 0, fwd: 0, fwdGoal: 0, demoMouse: 0, wheelAt: -1e9, wheelDir: 1, chips: [] };
+  gazeX: 0, gazeY: 0, pointer: null, phase: 0, lastSide: 'L', lastGazeOffset: 0, alt: 'L', spin: 0, spinning: false, mouseDown: false, wigX: 0, wigZ: 0, lidDir: 1, mouseLean: 0, sx: 0, fwd: 0, fwdGoal: 0, demoMouse: 0, wheelAt: -1e9, wheelDir: 1, chips: [] };
 const sleeping = t => S.sleepAt && t > S.sleepAt;
 if (VIEW.get('eyes') === 'shut') { S.blinkUntil = 1e13; S.blinkAt = 1e14; } if (VIEW.get('eyes') === 'happy') S.happyUntil = 1e13; if (VIEW.get('coat')) setTimeout(() => setCoat(+VIEW.get('coat')), 0); if (VIEW.get('wall')) setTimeout(() => setWall(+VIEW.get('wall')), 0);   // preview switches
 let SLEEP_AFTER = VIEW.get('sleep') ? +VIEW.get('sleep') * 1000 : (options.sleepMinutes || 5) * 60000;              // falls asleep by itself after this long without keys or mouse
@@ -460,6 +460,9 @@ function keyDown(code, t = performance.now()) {
   const k = keys.get(code); let side, x, z;
   side = code === 'Space' && t - S.lastMouse < 1600 ? (MOUSE_PAW === 'L' ? 'R' : 'L') : pawFor(code);
   if (k) { x = k.x; z = k.z; if (code === 'Space') x += (side === 'L' ? -1 : 1) * 0.3; } else { x = (side === 'L' ? -1 : 1) * 0.8; z = KB.z0 + 0.55; }
+  // Remember the pressed key's own horizontal offset from the keyboard centre (k.ox, 0 = middle),
+  // so the eyes look at the key itself - not at the paw and not at the shifted Space tap.
+  S.lastGazeOffset = k ? k.ox : ((side === 'L' ? -1 : 1) * 0.8 - activeLayout.baseCenterX * DESK_DIR);
   S.down.set(code, side); strike(side, x, z, t, k); paws[side].held = 1;
 }
 function keyUp(code) {
@@ -589,10 +592,14 @@ function frame() {
   if (calm && idleActions && !reduceMotion && t > S.nextAct) { const pool = ['lookL', 'lookR', 'tilt', 'ear', 'ear', 'lick', 'lick', 'groom', 'groom', 'loaf', 'curl', 'stretch', 'yawn', 'tail']; S.act = pool[Math.floor(Math.random() * pool.length)]; S.actUntil = t + ({ ear: 420, lick: 3200, groom: 4600, loaf: 5200, curl: 5600 }[S.act] || 1700); S.nextAct = t + rnd(7000, 15000); }
   if (S.act && (t > S.actUntil || !calm)) S.act = null;
   const looking = typing && t - S.lastKey < 1000;
+  // Look toward the key that was actually pressed, judged by its position on the keyboard
+  // (k.ox: negative = left half, 0 = centre, positive = right half). The Space bar is centred,
+  // so it now looks straight ahead instead of being treated as the left hand and glancing left.
+  const look = looking ? clamp((S.lastGazeOffset || 0) / (activeLayout.totalUnits * KB.unit / 2), -1, 1) : 0;
   // While the real cursor is moving, the cat watches the cursor itself: direction is measured from the head's place on screen.
   const follow = mousing && S.pointer && !(demo && t < S.demoMouse); let pdx = 0, pdy = 0;
   if (follow) { proj.setFromMatrixPosition(head.matrixWorld).project(camera); pdx = S.pointer.x - proj.x; pdy = S.pointer.y + proj.y; }
-  const turnT = asleep ? 0 : follow ? clamp(pdx * 0.5, -0.4, 0.4) : mousing ? -0.36 * DESK_DIR : looking ? (S.lastSide === 'L' ? -0.3 : 0.3) : grooming ? 0.48 + Math.sin(t / 180) * 0.05 : curling ? -0.14 : loafing ? 0.1 : S.act === 'lookL' ? -0.45 : S.act === 'lookR' ? 0.45 : S.pointer && !typing ? clamp(S.pointer.x, -1, 1) * 0.22 : 0;
+  const turnT = asleep ? 0 : follow ? clamp(pdx * 0.5, -0.4, 0.4) : mousing ? -0.36 * DESK_DIR : looking ? look * 0.3 : grooming ? 0.48 + Math.sin(t / 180) * 0.05 : curling ? -0.14 : loafing ? 0.1 : S.act === 'lookL' ? -0.45 : S.act === 'lookR' ? 0.45 : S.pointer && !typing ? clamp(S.pointer.x, -1, 1) * 0.22 : 0;
   const nodT = asleep ? 0.5 : yawning ? -0.3 * yawn : crouch ? 0.16 : happy ? -0.12 : grooming ? 0.3 + Math.sin(t / 150) * 0.08 : curling ? 0.2 : loafing ? 0.1 : licking ? 0.34 + Math.sin(t / 140) * 0.09 : stretching ? -0.18 : looking ? 0.3 : follow ? clamp(pdy * 0.5, -0.28, 0.4) : mousing ? 0.22 : S.pointer && !typing ? clamp(S.pointer.y * 0.2, -0.16, 0.2) : 0;
   const tiltT = asleep ? 0.16 : grooming ? -0.28 : curling ? 0.1 : licking ? -0.12 : S.act === 'tilt' ? 0.2 : happy ? (S.petSide || -1) * 0.1 + Math.sin(t / 330) * 0.06 : 0;
   S.turn += (turnT - S.turn) * ease(7); S.nod += (nodT - S.nod) * ease(6); S.tilt += (tiltT - S.tilt) * ease(5);
@@ -609,7 +616,7 @@ function frame() {
   if (t > S.blinkAt) { S.blinkUntil = t + 130; S.blinkAt = t + rnd(2600, 5600); }
   S.lidDir = 1;                      // happy: lower lid rises into an arch; blink and sleep: upper lid comes down
   const lidT = asleep || t < S.blinkUntil || happy || grooming ? 1 : curling ? 0.32 : loafing ? 0.22 : licking || stretching || yawn > 0.25 ? 1 : 0; S.lid += (lidT - S.lid) * (1 - Math.exp(-realDt * (lidT > S.lid ? 34 : 16)));   // eyelids keep real time even if frames are dropped
-  const gx = follow ? clamp(pdx * 2.2, -1, 1) : mousing ? -0.8 * DESK_DIR : looking ? (S.lastSide === 'L' ? -0.5 : 0.5) : S.pointer ? clamp(S.pointer.x * 1.2, -1, 1) : 0, gy = follow ? clamp(pdy * 2.2, -1, 1) : looking || mousing ? 1 : S.pointer ? clamp(S.pointer.y * 1.3, -1, 1) : 0;
+  const gx = follow ? clamp(pdx * 2.2, -1, 1) : mousing ? -0.8 * DESK_DIR : looking ? look * 0.5 : S.pointer ? clamp(S.pointer.x * 1.2, -1, 1) : 0, gy = follow ? clamp(pdy * 2.2, -1, 1) : looking || mousing ? 1 : S.pointer ? clamp(S.pointer.y * 1.3, -1, 1) : 0;
   S.gazeX += (gx - S.gazeX) * ease(9); S.gazeY += (gy - S.gazeY) * ease(9);
   const widen = (looking ? 1.25 : pouncing ? 1.9 : 1) * (1 - 0.3 * fast);
   const ex = 0.37 * P.eyeSpread, ey = P.eyeY, er = 0.205 * P.eyeSize, iry = er * 0.74, c = S.lid, dir = S.lidDir || 1;
