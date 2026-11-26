@@ -160,6 +160,9 @@ fn main_window_rect(_app: &AppHandle) -> Option<(i32, i32, i32, i32)> {
 #[cfg(not(all(windows, feature = "win7")))]
 fn main_window_rect(app: &AppHandle) -> Option<(i32, i32, i32, i32)> {
     let win = app.get_webview_window("main")?;
+    if win.is_minimized().unwrap_or(false) {
+        return None;
+    }
     let pos = win.outer_position().ok()?;
     let size = win.outer_size().ok()?;
     Some((pos.x, pos.y, size.width as i32, size.height as i32))
