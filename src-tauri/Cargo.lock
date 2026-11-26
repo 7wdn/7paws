@@ -3075,6 +3075,7 @@ dependencies = [
  "cc",
  "core-foundation",
  "core-graphics",
+ "objc2-app-kit",
  "oldwin",
  "oldwin-targets",
  "serde",

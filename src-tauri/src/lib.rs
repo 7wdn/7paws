@@ -6,6 +6,8 @@ mod input_hook;
 mod keymap;
 #[cfg(target_os = "macos")]
 mod keymap_macos;
+#[cfg(target_os = "macos")]
+mod macos_window;
 mod mcp;
 mod tray;
 #[cfg(all(windows, feature = "win7"))]
@@ -299,11 +301,26 @@ fn cursor_pos_for(_win: &WebviewWindow) -> Option<(f64, f64)> {
     cursor_pos().map(|(x, y)| (x as f64, y as f64))
 }
 
-// NSEvent reports points; Tauri converts to the physical pixels used by the
-// window position and size, so hit-test ratios match the Windows path.
+#[cfg(any(target_os = "macos", test))]
+fn cursor_to_window_pixels(
+    cursor: PhysicalPosition<f64>,
+    cursor_scale: f64,
+    window_scale: f64,
+) -> PhysicalPosition<f64> {
+    cursor
+        .to_logical::<f64>(cursor_scale)
+        .to_physical(window_scale)
+}
+
+// macOS scales the global cursor by the primary display, but window rectangles
+// by their own display. Convert through points before comparing the two.
 #[cfg(target_os = "macos")]
 fn cursor_pos_for(win: &WebviewWindow) -> Option<(f64, f64)> {
-    win.cursor_position().ok().map(|p| (p.x, p.y))
+    let cursor = win.cursor_position().ok()?;
+    let cursor_scale = win.app_handle().primary_monitor().ok()??.scale_factor();
+    let window_scale = win.scale_factor().ok()?;
+    let cursor = cursor_to_window_pixels(cursor, cursor_scale, window_scale);
+    Some((cursor.x, cursor.y))
 }
 
 #[cfg(not(any(windows, target_os = "macos")))]
@@ -513,7 +530,13 @@ fn place_settings_window(app: &AppHandle, win: &WebviewWindow) {
         .unwrap_or(1.0);
     let (sw, sh) = win
         .outer_size()
-        .map(|size| (size.width as i32, size.height as i32))
+        .map(|size| {
+            #[cfg(target_os = "macos")]
+            let size = size
+                .to_logical::<f64>(win.scale_factor().unwrap_or(sf))
+                .to_physical::<u32>(sf);
+            (size.width as i32, size.height as i32)
+        })
         .unwrap_or_else(|_| {
             (
                 (SETTINGS_WIDTH * sf).round() as i32,
@@ -573,7 +596,12 @@ fn place_settings_window(app: &AppHandle, win: &WebviewWindow) {
     win7::debug_log(format!(
         "settings:place pet={pet_x},{pet_y},{pet_w},{pet_h} size={sw}x{sh} work={ax},{ay},{aw},{ah} target={x},{y}"
     ));
-    let _ = win.set_position(PhysicalPosition::new(x, y));
+    // Screen points avoid applying the settings window's old display scale.
+    #[cfg(target_os = "macos")]
+    let position = PhysicalPosition::new(x, y).to_logical::<f64>(sf);
+    #[cfg(not(target_os = "macos"))]
+    let position = PhysicalPosition::new(x, y);
+    let _ = win.set_position(position);
     #[cfg(all(windows, feature = "win7"))]
     win7::set_window_position(win, x, y);
 }
@@ -646,7 +674,12 @@ pub(crate) fn close_settings_if_clicked_outside(app: &AppHandle) {
     if point_in_rect(pos, size, cx, cy) {
         return;
     }
-    if let Some((pet_x, pet_y, pet_w, pet_h)) = main_window_rect(app) {
+    let pet_cursor = app
+        .get_webview_window("main")
+        .and_then(|pet| cursor_pos_for(&pet));
+    if let (Some((pet_x, pet_y, pet_w, pet_h)), Some((cx, cy))) =
+        (main_window_rect(app), pet_cursor)
+    {
         if main_window_is_visible(app)
             && point_in_rect(
                 PhysicalPosition::new(pet_x, pet_y),
@@ -686,6 +719,8 @@ pub(crate) fn show_settings_window(app: &AppHandle) {
 }
 
 fn show_and_place_settings_window(app: &AppHandle, win: &WebviewWindow) {
+    #[cfg(target_os = "macos")]
+    let _ = macos_window::configure_spaces(win);
     #[cfg(not(all(windows, feature = "win7")))]
     {
         place_settings_window(app, win);
@@ -1197,6 +1232,8 @@ fn run_inner(_restarting: bool) {
             }
 
             if let Some(win) = app.get_webview_window("main") {
+                #[cfg(target_os = "macos")]
+                macos_window::configure_spaces(&win)?;
                 #[cfg(all(windows, feature = "win7"))]
                 win7::debug_log("setup:main_window_found");
                 let (w, h) = window_dimensions(&s.keyboard_layout, s.scale);
@@ -1273,4 +1310,70 @@ fn run_inner(_restarting: bool) {
         ])
         .run(tauri::generate_context!())
         .expect("error while running 7paws");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{cursor_to_window_pixels, point_in_rect};
+    use tauri::{PhysicalPosition, PhysicalSize};
+
+    #[test]
+    fn secondary_display_cursor_hits_the_window_with_mixed_scales() {
+        // Cursor and window share a screen point, but use different pixel scales.
+        for (cursor_scale, window_scale) in [(2.0, 1.0), (1.0, 2.0), (2.0, 2.0), (1.0, 1.0)] {
+            let cursor = PhysicalPosition::new(1600.0 * cursor_scale, 600.0 * cursor_scale);
+            let pos = PhysicalPosition::new(
+                (1440.0 * window_scale) as i32,
+                (480.0 * window_scale) as i32,
+            );
+            let size =
+                PhysicalSize::new((396.0 * window_scale) as u32, (288.0 * window_scale) as u32);
+            let cursor = cursor_to_window_pixels(cursor, cursor_scale, window_scale);
+            assert!(point_in_rect(pos, size, cursor.x, cursor.y));
+            let rx = (cursor.x - pos.x as f64) / size.width as f64;
+            let ry = (cursor.y - pos.y as f64) / size.height as f64;
+            assert!((rx - 160.0 / 396.0).abs() < 1e-9);
+            assert!((ry - 120.0 / 288.0).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn secondary_displays_left_of_or_above_primary_keep_negative_coordinates() {
+        let size = PhysicalSize::new(396, 288);
+        for (pos, cursor) in [
+            (
+                PhysicalPosition::new(-1200, 480),
+                PhysicalPosition::new(-2080.0, 1200.0),
+            ),
+            (
+                PhysicalPosition::new(1440, -720),
+                PhysicalPosition::new(3200.0, -1200.0),
+            ),
+        ] {
+            let cursor = cursor_to_window_pixels(cursor, 2.0, 1.0);
+            assert!(point_in_rect(pos, size, cursor.x, cursor.y));
+        }
+    }
+
+    #[test]
+    fn outside_click_checks_use_the_target_windows_scale() {
+        let cursor = PhysicalPosition::new(3200.0, 1200.0);
+        let pet_pos = PhysicalPosition::new(1440, 480);
+        let pet_size = PhysicalSize::new(396, 288);
+        let settings_pos = PhysicalPosition::new(3400, 400);
+        let settings_size = PhysicalSize::new(488, 1032);
+
+        let settings_cursor = cursor_to_window_pixels(cursor, 2.0, 2.0);
+        assert!(!point_in_rect(
+            settings_pos,
+            settings_size,
+            settings_cursor.x,
+            settings_cursor.y,
+        ));
+        let pet_cursor = cursor_to_window_pixels(cursor, 2.0, 1.0);
+        assert!(point_in_rect(pet_pos, pet_size, pet_cursor.x, pet_cursor.y));
+
+        let outside = cursor_to_window_pixels(PhysicalPosition::new(4000.0, 1200.0), 2.0, 1.0);
+        assert!(!point_in_rect(pet_pos, pet_size, outside.x, outside.y));
+    }
 }
