@@ -130,25 +130,28 @@ const KEYS_104 = [
   K('NumpadDecimal', '.', NUM_X + 2, 5.25, 1),
 ];
 
-// 98-key: TKL main block + right island (Home/Ins/PgUp/PgDn) + numpad + a small
-// arrow cluster tucked between the main block and the numpad.
+// 98-key: TKL main block + nav island (Del/Ins/PgUp/PgDn) + numpad, with the
+// arrow cluster tucked into the gap between the main block and the numpad. The
+// F row is one continuous 1u run (no 104-style group gaps) and stops at F12;
+// Del sits at the head of the nav island. The nav keys are a little shorter
+// than a full key, and the short right Ctrl leaves room for the arrows. The
+// numpad's bottom-left cell is empty and "0" sits under "2", as on the
+// reference board.
 const KEYS_98 = [
-  K('Escape', 'Esc', 0, 0),
-  K('F1', 'F1', 1.5, 0),
-  K('F2', 'F2', 2.5, 0),
-  K('F3', 'F3', 3.5, 0),
-  K('F4', 'F4', 4.5, 0),
-  K('F5', 'F5', 5.75, 0),
-  K('F6', 'F6', 6.75, 0),
-  K('F7', 'F7', 7.75, 0),
-  K('F8', 'F8', 8.75, 0),
-  K('F9', 'F9', 10, 0),
-  K('F10', 'F10', 11, 0),
-  K('F11', 'F11', 12, 0),
-  K('F12', 'F12', 13, 0),
-  K('PrintScreen', 'PrtSc', 14, 0, 0.8),
-  K('Delete', 'Del', 14.8, 0, 0.8),
-  K('Backquote', '`', 0, 1.25),
+  K('Escape', 'Esc', 0, 0, 1, { accent: 'accent' }),
+  K('F1', 'F1', 1, 0),
+  K('F2', 'F2', 2, 0),
+  K('F3', 'F3', 3, 0),
+  K('F4', 'F4', 4, 0),
+  K('F5', 'F5', 5, 0),
+  K('F6', 'F6', 6, 0),
+  K('F7', 'F7', 7, 0),
+  K('F8', 'F8', 8, 0),
+  K('F9', 'F9', 9, 0),
+  K('F10', 'F10', 10, 0),
+  K('F11', 'F11', 11, 0),
+  K('F12', 'F12', 12, 0),
+  K('Backquote', '`', 0, 1.25, 1, { accent: 'plain' }),
   K('Digit1', '1', 1, 1.25),
   K('Digit2', '2', 2, 1.25),
   K('Digit3', '3', 3, 1.25),
@@ -188,7 +191,7 @@ const KEYS_98 = [
   K('KeyL', 'L', 9.75, 3.25),
   K('Semicolon', ';', 10.75, 3.25),
   K('Quote', '\'', 11.75, 3.25),
-  K('Enter', '⏎', 12.75, 3.25, 2.25),
+  K('Enter', '⏎', 12.75, 3.25, 2.25, { accent: 'accent' }),
   K('ShiftLeft', '⇧', 0, 4.25, 2.25),
   K('KeyZ', 'Z', 2.25, 4.25),
   K('KeyX', 'X', 3.25, 4.25),
@@ -207,32 +210,32 @@ const KEYS_98 = [
   K('Space', '␣', 3.75, 5.25, 6),
   K('AltRight', 'Alt', 9.75, 5.25, 1.25),
   K('Fn', 'Fn', 11, 5.25, 1.25),
-  K('ControlRight', 'Ctrl', 12.25, 5.25, 1.25),
-  K('ArrowUp', '↑', 14.15, 4.425, 0.65, { rowSpan: 0.65 }),
-  K('ArrowLeft', '←', 13.5, 5.425, 0.65, { rowSpan: 0.65 }),
-  K('ArrowDown', '↓', 14.15, 5.425, 0.65, { rowSpan: 0.65 }),
-  K('ArrowRight', '→', 14.8, 5.425, 0.65, { rowSpan: 0.65 }),
-  K('Home', 'Home', 15.7, 0),
-  K('Insert', 'Ins', 16.7, 0),
-  K('PageUp', 'PgUp', 17.7, 0),
-  K('PageDown', 'PgDn', 18.7, 0),
-  K('NumLock', 'Num', 15.7, 1.25),
-  K('NumpadDivide', '/', 16.7, 1.25),
-  K('NumpadMultiply', '*', 17.7, 1.25),
-  K('NumpadSubtract', '-', 18.7, 1.25),
-  K('Numpad7', '7', 15.7, 2.25),
-  K('Numpad8', '8', 16.7, 2.25),
-  K('Numpad9', '9', 17.7, 2.25),
-  K('NumpadAdd', '+', 18.7, 2.25, 1, { rowSpan: 2 }),
-  K('Numpad4', '4', 15.7, 3.25),
-  K('Numpad5', '5', 16.7, 3.25),
-  K('Numpad6', '6', 17.7, 3.25),
-  K('Numpad1', '1', 15.7, 4.25),
-  K('Numpad2', '2', 16.7, 4.25),
-  K('Numpad3', '3', 17.7, 4.25),
-  K('NumpadEnter', '↵', 18.7, 4.25, 1, { rowSpan: 2 }),
-  K('Numpad0', '0', 15.7, 5.25, 2),
-  K('NumpadDecimal', '.', 17.7, 5.25),
+  K('ControlRight', 'Ctrl', 12.25, 5.25, 0.6),
+  K('ArrowUp', '↑', 14.1, 4.37, 0.85, { rowSpan: 0.9 }),
+  K('ArrowLeft', '←', 13.2, 5.42, 0.85, { rowSpan: 0.8 }),
+  K('ArrowDown', '↓', 14.1, 5.42, 0.85, { rowSpan: 0.8 }),
+  K('ArrowRight', '→', 15.0, 5.42, 0.9, { rowSpan: 0.8 }),
+  K('Delete', 'Del', 15.6, 0, 1, { rowSpan: 0.9 }),
+  K('Insert', 'Ins', 16.6, 0, 1, { rowSpan: 0.9 }),
+  K('PageUp', 'PgUp', 17.6, 0, 1, { rowSpan: 0.9 }),
+  K('PageDown', 'PgDn', 18.6, 0, 1, { rowSpan: 0.9 }),
+  K('NumLock', 'Num', 15.6, 1.25),
+  K('NumpadDivide', '/', 16.6, 1.25),
+  K('NumpadMultiply', '*', 17.6, 1.25),
+  K('NumpadSubtract', '-', 18.6, 1.25),
+  K('Numpad7', '7', 15.6, 2.25),
+  K('Numpad8', '8', 16.6, 2.25),
+  K('Numpad9', '9', 17.6, 2.25),
+  K('NumpadAdd', '+', 18.6, 2.25, 1, { rowSpan: 2 }),
+  K('Numpad4', '4', 15.6, 3.25),
+  K('Numpad5', '5', 16.6, 3.25),
+  K('Numpad6', '6', 17.6, 3.25),
+  K('Numpad1', '1', 15.6, 4.25),
+  K('Numpad2', '2', 16.6, 4.25),
+  K('Numpad3', '3', 17.6, 4.25),
+  K('NumpadEnter', '↵', 18.6, 4.25, 1, { accent: 'accent', rowSpan: 2 }),
+  K('Numpad0', '0', 16.6, 5.25),
+  K('NumpadDecimal', '.', 17.6, 5.25),
 ];
 
 const LAYOUTS = {};
@@ -260,7 +263,7 @@ function buildLayout(id, totalUnits, totalRows, specs) {
 }
 buildLayout('65', 15, 5, specsFromRows(ROWS));
 buildLayout('104', 22.7, 6.25, KEYS_104);
-buildLayout('98', 19.7, 6.25, KEYS_98);
+buildLayout('98', 19.6, 6.25, KEYS_98);
 let activeLayout = LAYOUTS['65'];
 let board = activeLayout.group;
 let keys = activeLayout.keys;
