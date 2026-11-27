@@ -102,7 +102,7 @@ impl AppSettings {
         if !COATS.contains(&self.coat.as_str()) && !is_slug(&self.coat) {
             self.coat = "tuxedo".to_string();
         }
-        if self.keyboard_layout != "104" {
+        if !matches!(self.keyboard_layout.as_str(), "104" | "98") {
             self.keyboard_layout = "65".to_string();
         }
         if !matches!(

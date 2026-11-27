@@ -41,7 +41,7 @@ export class SevenPawsPet {
   private readonly onRegions: ((regions: Region[]) => void) | undefined;
   private settings: AppSettings;
   private cats: CustomCat[];
-  private layout: "65" | "104";
+  private layout: "65" | "104" | "98";
   private keys = new Set<string>();
   private buttons = new Set<string>();
   private purrTimer = 0;

@@ -19,7 +19,7 @@ let settings: AppSettings = { ...defaultSettings };
 let customCats: CustomCat[] = [];
 let scene: SevenPawsPet;
 let win7Mode = false;
-let captureAspects: Record<AppSettings["keyboardLayout"], number> = { "65": 16 / 9, "104": 16 / 9 };
+let captureAspects: Record<AppSettings["keyboardLayout"], number> = { "65": 16 / 9, "98": 16 / 9, "104": 16 / 9 };
 const reminder = new ReminderController();
 let lastReminderKey = "";
 
@@ -135,9 +135,9 @@ async function boot() {
   }
 
   if (isTauri && captureMode) {
-    const [compact, full] = await invoke<[number, number]>("get_capture_aspects")
-      .catch((): [number, number] => [captureAspects["65"], captureAspects["104"]]);
-    captureAspects = { "65": compact, "104": full };
+    const [compact, compact98, full] = await invoke<[number, number, number]>("get_capture_aspects")
+      .catch((): [number, number, number] => [captureAspects["65"], captureAspects["98"], captureAspects["104"]]);
+    captureAspects = { "65": compact, "98": compact98, "104": full };
   }
 
   const params = new URLSearchParams(location.search);
@@ -146,7 +146,8 @@ async function boot() {
   if (captureMode && !isTauri) {
     const background = CAPTURE_BACKGROUNDS.find((c) => c.value === params.get("bg"));
     if (background) settings.captureBackground = background.value;
-    if (params.get("layout") === "104") settings.keyboardLayout = "104";
+    const layoutParam = params.get("layout");
+    if (layoutParam === "104" || layoutParam === "98") settings.keyboardLayout = layoutParam;
   }
   syncCaptureView();
 

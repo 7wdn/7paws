@@ -5,8 +5,8 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 static WINDOW_CREATION: Mutex<()> = Mutex::new(());
 
 #[tauri::command]
-pub(crate) fn get_capture_aspects() -> [f64; 2] {
-    ["65", "104"].map(|layout| {
+pub(crate) fn get_capture_aspects() -> [f64; 3] {
+    ["65", "98", "104"].map(|layout| {
         let (width, height) = base_dimensions(layout);
         width / height
     })

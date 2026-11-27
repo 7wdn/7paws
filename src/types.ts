@@ -40,7 +40,7 @@ export interface AppSettings {
   sleepMinutes: number;
   idleActions: boolean;
   showKeyLabels: boolean;
-  keyboardLayout: "65" | "104";
+  keyboardLayout: "65" | "104" | "98";
   captureBackground: "green" | "blue" | "magenta";
   showTrayIcon: boolean;
   mcpEnabled: boolean;
