@@ -44,6 +44,51 @@ body.stream-green-screen {
   background: var(--capture-background);
 }
 
+html.reminder-html,
+body.reminder-body {
+  width: max-content;
+  height: auto;
+  overflow: visible;
+  background: transparent;
+}
+
+body.reminder-body {
+  margin: 0;
+  padding: 12px 12px 20px;
+}
+
+.reminder-card {
+  position: relative;
+  width: 224px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  box-shadow: 0 8px 18px rgba(24, 20, 12, 0.18);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.reminder-card::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 12px;
+  height: 12px;
+  background: var(--paper);
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.reminder-text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .capture-dot {
   flex-shrink: 0;
   width: 9px;

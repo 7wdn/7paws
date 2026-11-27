@@ -9,6 +9,7 @@ mod keymap_macos;
 #[cfg(target_os = "macos")]
 mod macos_window;
 mod mcp;
+mod reminder;
 mod tray;
 #[cfg(all(windows, feature = "win7"))]
 mod win7;
@@ -38,7 +39,7 @@ pub const SETTINGS_HEIGHT: f64 = 516.0;
 /// Safety cap for the server-side modal guard: even if the webview never
 /// reports the picker closing, outside clicks close the window again after this.
 const SETTINGS_MODAL_TIMEOUT_MS: u64 = 10 * 60 * 1000;
-const BROWSER_ARGS: &str = if cfg!(all(windows, feature = "win7")) {
+pub(crate) const BROWSER_ARGS: &str = if cfg!(all(windows, feature = "win7")) {
     "--autoplay-policy=no-user-gesture-required --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-timer-throttling --disable-features=CalculateNativeWinOcclusion"
 } else {
     "--autoplay-policy=no-user-gesture-required"
@@ -159,12 +160,12 @@ fn default_regions() -> Vec<[f64; 4]> {
 }
 
 #[cfg(all(windows, feature = "win7"))]
-fn main_window_rect(_app: &AppHandle) -> Option<(i32, i32, i32, i32)> {
+pub(crate) fn main_window_rect(_app: &AppHandle) -> Option<(i32, i32, i32, i32)> {
     win7::get_rect()
 }
 
 #[cfg(not(all(windows, feature = "win7")))]
-fn main_window_rect(app: &AppHandle) -> Option<(i32, i32, i32, i32)> {
+pub(crate) fn main_window_rect(app: &AppHandle) -> Option<(i32, i32, i32, i32)> {
     let win = app.get_webview_window("main")?;
     if win.is_minimized().unwrap_or(false) {
         return None;
@@ -1294,6 +1295,10 @@ fn run_inner(_restarting: bool) {
             get_settings,
             update_settings,
             open_settings,
+            reminder::show_reminder_bubble,
+            reminder::get_reminder_text,
+            reminder::show_reminder_bubble_ready,
+            reminder::close_reminder_bubble,
             close_settings,
             set_settings_modal,
             get_custom_cats,

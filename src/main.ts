@@ -18,7 +18,9 @@ let settings: AppSettings = { ...defaultSettings };
 let customCats: CustomCat[] = [];
 let scene: SevenPawsPet;
 let win7Mode = false;
-const reminder = new ReminderController();
+const reminder = new ReminderController((text) => {
+  if (isTauri) void invoke("show_reminder_bubble", { text }).catch(() => undefined);
+});
 let lastReminderKey = "";
 
 function syncReminder() {
