@@ -6,9 +6,11 @@ import { SevenPawsPet } from "./pet/sevenPaws.ts";
 import { COATS } from "./pet/coats";
 import { ReminderController } from "./reminder.ts";
 import { defaultSettings } from "./defaults";
+import { CAPTURE_BACKGROUNDS } from "./captureBackgrounds";
 import type { AppSettings, CatInput, CustomCat } from "./types";
 
 const isTauri = "__TAURI_INTERNALS__" in window || "__TAURI__" in window;
+const captureMode = document.body.classList.contains("capture-body");
 
 const stage = document.getElementById("stage") as HTMLDivElement;
 const permNotice = document.getElementById("permNotice") as HTMLDivElement;
@@ -17,14 +19,28 @@ let settings: AppSettings = { ...defaultSettings };
 let customCats: CustomCat[] = [];
 let scene: SevenPawsPet;
 let win7Mode = false;
+let captureAspects: Record<AppSettings["keyboardLayout"], number> = { "65": 16 / 9, "104": 16 / 9 };
 const reminder = new ReminderController();
 let lastReminderKey = "";
 
 function syncReminder() {
+  if (captureMode) return;
   const key = `${settings.reminderEnabled}|${settings.reminderText}|${settings.reminderIntervalMinutes}`;
   if (key === lastReminderKey) return;
   lastReminderKey = key;
   reminder.configure(settings.reminderEnabled, settings.reminderText, settings.reminderIntervalMinutes);
+}
+
+function sceneSettings(): AppSettings {
+  return captureMode ? { ...settings, opacity: 1 } : settings;
+}
+
+function syncCaptureView() {
+  if (!captureMode) return;
+  const background = CAPTURE_BACKGROUNDS.find((c) => c.value === settings.captureBackground)
+    ?? CAPTURE_BACKGROUNDS[0];
+  document.documentElement.style.setProperty("--capture-background", background.color);
+  document.documentElement.style.setProperty("--capture-aspect", String(captureAspects[settings.keyboardLayout]));
 }
 
 function bindPointer() {
@@ -89,7 +105,7 @@ function runDemo() {
 }
 
 async function boot() {
-  if (!isTauri) {
+  if (!isTauri && !captureMode) {
     document.documentElement.style.background = "#f6d97a";
     document.body.style.position = "relative";
     document.body.style.width = "660px";
@@ -111,22 +127,38 @@ async function boot() {
     }
   }
 
-  if (isTauri) {
+  if (isTauri && !captureMode) {
     win7Mode = await invoke<boolean>("is_win7_mode").catch(() => false);
     if (win7Mode) {
       void invoke("win7_debug_log", { message: "frontend:win7_mode" }).catch(() => undefined);
     }
   }
 
+  if (isTauri && captureMode) {
+    const [compact, full] = await invoke<[number, number]>("get_capture_aspects")
+      .catch((): [number, number] => [captureAspects["65"], captureAspects["104"]]);
+    captureAspects = { "65": compact, "104": full };
+  }
+
   const params = new URLSearchParams(location.search);
   const debugCoat = params.get("previewCoat");
   if (debugCoat && COATS.some((c) => c.id === debugCoat)) settings.coat = debugCoat;
+  if (captureMode && !isTauri) {
+    const background = CAPTURE_BACKGROUNDS.find((c) => c.value === params.get("bg"));
+    if (background) settings.captureBackground = background.value;
+    if (params.get("layout") === "104") settings.keyboardLayout = "104";
+  }
+  syncCaptureView();
 
   try {
-    scene = new SevenPawsPet(stage, settings, customCats, (regions) => {
+    scene = new SevenPawsPet(stage, sceneSettings(), customCats, captureMode ? undefined : (regions) => {
       if (isTauri) void invoke("set_hit_regions", { regions });
-    }, win7Mode);
+    }, win7Mode, !captureMode);
   } catch (error) {
+    if (captureMode) {
+      permNotice.textContent = `启动失败：${String(error)}`;
+      permNotice.classList.remove("hidden");
+    }
     if (isTauri) {
       void invoke("win7_debug_log", { message: `scene:init ${String(error)}` }).catch(() => undefined);
     }
@@ -136,7 +168,7 @@ async function boot() {
     void invoke("win7_debug_log", { message: "frontend:scene_created" }).catch(() => undefined);
   }
 
-  bindPointer();
+  if (!captureMode) bindPointer();
   listenGlobalKeysForDev();
   syncReminder();
 
@@ -171,12 +203,13 @@ async function boot() {
     }
     await listen<AppSettings>("cat-settings", (ev) => {
       settings = ev.payload;
-      scene.applySettings(settings, customCats);
+      syncCaptureView();
+      scene.applySettings(sceneSettings(), customCats);
       syncReminder();
     });
     await listen<CustomCat[]>("cat-cats", (ev) => {
       customCats = ev.payload;
-      scene.applySettings(settings, customCats);
+      scene.applySettings(sceneSettings(), customCats);
     });
     await listen<{ trusted: boolean }>("cat-input-status", (ev) => {
       permNotice.classList.toggle("hidden", ev.payload.trusted);
@@ -185,6 +218,9 @@ async function boot() {
 
   window.addEventListener("resize", () => {
     scene.refreshHitRegions();
+  });
+  window.addEventListener("pagehide", (event) => {
+    if (!event.persisted) scene.destroy();
   });
 
   if (params.get("demo") === "1") runDemo();

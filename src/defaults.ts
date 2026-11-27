@@ -18,6 +18,7 @@ export const defaultSettings: AppSettings = {
   idleActions: true,
   showKeyLabels: true,
   keyboardLayout: "65",
+  captureBackground: "green",
   showTrayIcon: true,
   mcpEnabled: true,
   reminderEnabled: false,

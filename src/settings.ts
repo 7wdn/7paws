@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { COATS } from "./pet/coats";
 import { defaultSettings } from "./defaults";
+import { CAPTURE_BACKGROUNDS } from "./captureBackgrounds";
 import type { AppSettings, CatPattern, CatSpot, CustomCat } from "./types";
 
 const isTauri = "__TAURI_INTERNALS__" in window || "__TAURI__" in window;
@@ -19,6 +20,11 @@ const sleepSelect = document.getElementById("sleepSelect") as HTMLButtonElement;
 const layoutSelect = document.getElementById("layoutSelect") as HTMLButtonElement;
 const sleepLabel = sleepSelect.querySelector(".dropdown-label") as HTMLSpanElement;
 const layoutLabel = layoutSelect.querySelector(".dropdown-label") as HTMLSpanElement;
+const captureBackgroundSelect = document.getElementById("captureBackgroundSelect") as HTMLButtonElement;
+const captureBackgroundLabel = captureBackgroundSelect.querySelector(".dropdown-label") as HTMLSpanElement;
+const captureBackgroundDot = document.getElementById("captureBackgroundDot") as HTMLSpanElement;
+const captureBtn = document.getElementById("captureBtn") as HTMLButtonElement;
+const captureHint = document.getElementById("captureHint") as HTMLDivElement;
 const leftMouseInput = document.getElementById("leftMouse") as HTMLInputElement;
 const alwaysOnTopInput = document.getElementById("alwaysOnTop") as HTMLInputElement;
 const clickThroughLockedInput = document.getElementById("clickThroughLocked") as HTMLInputElement;
@@ -137,7 +143,7 @@ interface McpClient {
   location: string;
 }
 
-// Same clients and order as SevenShell: Qoder first with a 荐 badge.
+// Qoder is listed first.
 const MCP_CLIENTS: McpClient[] = [
   { id: "qoder", name: "Qoder", location: "~/.qoder/mcp.json" },
   { id: "claudeCode", name: "Claude Code", location: ".mcp.json" },
@@ -728,6 +734,10 @@ function syncControls() {
     ?? `${settings.sleepMinutes} 分钟`;
   layoutLabel.textContent = layoutChoices.find((c) => c.value === settings.keyboardLayout)?.label
     ?? settings.keyboardLayout;
+  const background = CAPTURE_BACKGROUNDS.find((c) => c.value === settings.captureBackground)
+    ?? CAPTURE_BACKGROUNDS[0];
+  captureBackgroundLabel.textContent = background.label;
+  captureBackgroundDot.style.background = background.color;
   leftMouseInput.checked = settings.leftMouse;
   alwaysOnTopInput.checked = settings.alwaysOnTop;
   clickThroughLockedInput.checked = settings.clickThroughLocked;
@@ -962,6 +972,35 @@ function bindControls() {
       () => settings.keyboardLayout,
       (value) => void saveSettings({ keyboardLayout: value === "104" ? "104" : "65" }),
     );
+  });
+
+  captureBackgroundSelect.addEventListener("click", () => {
+    openDropdown(
+      captureBackgroundSelect,
+      CAPTURE_BACKGROUNDS,
+      () => settings.captureBackground,
+      (value) => {
+        const background = CAPTURE_BACKGROUNDS.find((c) => c.value === value);
+        if (background) void saveSettings({ captureBackground: background.value });
+      },
+    );
+  });
+
+  captureBtn.addEventListener("click", async () => {
+    captureBtn.disabled = true;
+    try {
+      if (isTauri) {
+        await invoke("open_capture_window");
+      } else {
+        window.open(`capture.html?localinput&bg=${settings.captureBackground}&layout=${settings.keyboardLayout}&previewCoat=${settings.coat}`, "7paws-capture", "width=660,height=480");
+      }
+      captureHint.textContent = "选中「7paws 直播窗口」，添加色度键抠像。";
+    } catch (error) {
+      captureHint.textContent = "直播窗口未能打开，请稍后重试。";
+      console.error("Failed to open capture window", error);
+    } finally {
+      captureBtn.disabled = false;
+    }
   });
 
   leftMouseInput.addEventListener("change", () => {

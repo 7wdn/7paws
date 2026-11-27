@@ -41,6 +41,7 @@ export interface AppSettings {
   idleActions: boolean;
   showKeyLabels: boolean;
   keyboardLayout: "65" | "104";
+  captureBackground: "green" | "blue" | "magenta";
   showTrayIcon: boolean;
   mcpEnabled: boolean;
   reminderEnabled: boolean;

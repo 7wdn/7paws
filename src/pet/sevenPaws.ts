@@ -38,7 +38,7 @@ declare global {
 export class SevenPawsPet {
   private readonly api: RefCatApi;
   private readonly host: HTMLElement;
-  private readonly onRegions: (regions: Region[]) => void;
+  private readonly onRegions: ((regions: Region[]) => void) | undefined;
   private settings: AppSettings;
   private cats: CustomCat[];
   private layout: "65" | "104";
@@ -53,6 +53,7 @@ export class SevenPawsPet {
   private hasRaw = false;
   private regionsKey = "";
   private readonly win7Mode: boolean;
+  private readonly audioEnabled: boolean;
   private frameBusy = false;
   private lastFrameAt = 0;
   private debugCaptureLogged = false;
@@ -62,11 +63,13 @@ export class SevenPawsPet {
     host: HTMLElement,
     settings: AppSettings,
     cats: CustomCat[],
-    onRegions: (regions: Region[]) => void,
+    onRegions?: (regions: Region[]) => void,
     win7Mode = false,
+    audioEnabled = true,
   ) {
     this.win7Mode = win7Mode;
-    if (!window.createCat) throw new Error("Reference cat renderer is missing");
+    this.audioEnabled = audioEnabled;
+    if (!window.createCat) throw new Error("3D cat renderer is missing");
     const api = window.createCat(host, {
       coat: settings.coat,
       sleepMinutes: settings.sleepMinutes,
@@ -77,7 +80,7 @@ export class SevenPawsPet {
       onError: win7Mode ? (message) => this.logDebug(`webgl:${message}`) : undefined,
       onDebug: win7Mode ? (message) => this.logDebug(message) : undefined,
     });
-    if (!api) throw new Error("Reference cat renderer failed to start");
+    if (!api) throw new Error("3D cat renderer failed to start");
     this.api = api;
     this.host = host;
     this.settings = settings;
@@ -85,22 +88,26 @@ export class SevenPawsPet {
     this.layout = settings.keyboardLayout;
     this.onRegions = onRegions;
 
-    catAudio.setEnabled(settings.purrPet || settings.purrSleep);
+    catAudio.setEnabled(audioEnabled && (settings.purrPet || settings.purrSleep));
     this.applyOptions(settings);
     this.api.setLayout(this.layout);
     this.clearInput();
     if (this.win7Mode) this.api.setAfterRender(() => this.presentFrame());
 
-    this.purrTimer = window.setInterval(() => {
-      const state = this.api.state();
-      const target = state === "petting" && this.settings.purrPet
-        ? 0.85
-        : state === "sleeping" && this.settings.purrSleep
-          ? 0.4
-          : 0;
-      catAudio.setPurrIntensity(target);
-      this.syncRegions();
-    }, 180);
+    if (audioEnabled || onRegions) {
+      this.purrTimer = window.setInterval(() => {
+        if (this.audioEnabled) {
+          const state = this.api.state();
+          const target = state === "petting" && this.settings.purrPet
+            ? 0.85
+            : state === "sleeping" && this.settings.purrSleep
+              ? 0.4
+              : 0;
+          catAudio.setPurrIntensity(target);
+        }
+        this.syncRegions();
+      }, 180);
+    }
 
     this.refreshHitRegions();
   }
@@ -141,8 +148,8 @@ export class SevenPawsPet {
         this.api.setPointerNdc(Math.tanh(dx * 1.1), Math.tanh(dy * 1.1));
 
         if (this.hasRaw) {
-          const rawDx = (ev.nx - this.rawX) * window.innerWidth;
-          const rawDy = (ev.ny - this.rawY) * window.innerHeight;
+          const rawDx = (ev.nx - this.rawX) * this.host.clientWidth;
+          const rawDy = (ev.ny - this.rawY) * this.host.clientHeight;
           this.api.nudgeMouse(
             Math.max(-0.16, Math.min(0.16, rawDx * 0.004)),
             Math.max(-0.12, Math.min(0.12, rawDy * 0.004)),
@@ -184,7 +191,7 @@ export class SevenPawsPet {
     if (next.leftMouse !== prev.leftMouse || next.privacyMode !== prev.privacyMode) {
       this.clearInput();
     }
-    if (next.purrPet !== prev.purrPet || next.purrSleep !== prev.purrSleep) {
+    if (this.audioEnabled && (next.purrPet !== prev.purrPet || next.purrSleep !== prev.purrSleep)) {
       const wasEnabled = prev.purrPet || prev.purrSleep;
       const nowEnabled = next.purrPet || next.purrSleep;
       if (wasEnabled !== nowEnabled) catAudio.setEnabled(nowEnabled);
@@ -199,6 +206,7 @@ export class SevenPawsPet {
   }
 
   private syncRegions(force = false) {
+    if (!this.onRegions) return;
     const regions = this.api.hitRegions();
     if (!regions.length) return;
     const key = regions.map((r) => r.map((v) => Math.round(v * 200)).join(",")).join("|");
