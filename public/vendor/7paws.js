@@ -230,7 +230,8 @@ const head = new THREE.Group(); head.position.set(0, 2.3, 0.1); headFix.add(head
 const TEX = 256, mkTex = () => { const c = document.createElement('canvas'); c.width = c.height = TEX; return { g: c.getContext('2d'), t: new THREE.CanvasTexture(c) }; };
 const bodyTex = mkTex(), headTex = mkTex(); M.body.map = bodyTex.t; M.head = new THREE.MeshBasicMaterial({ map: headTex.t }); M.tail = flat('#101010');
 // u runs round the cat (0.25 = facing the viewer, 0.75 = the back), v runs bottom to top
-const blob = (g, u, v, ru, rv, color, rot = 0) => { g.fillStyle = color; for (const du of [-1, 0, 1]) { g.beginPath(); g.ellipse((u + du) * TEX, (1 - v) * TEX, ru * TEX, rv * TEX, rot, 0, 7); g.fill(); } };
+// [7paws] A fur patch: an ellipse whose rim wobbles so it does not read as a pasted-on shape. u wraps round (0.25 front, 0.75 back), v is bottom to top.
+const lump = (g, u, v, ru, rv, color, rot = 0, wob = 0.1, ph = 0) => { g.fillStyle = color; for (const du of [-1, 0, 1]) { g.beginPath(); for (let i = 0; i <= 48; i++) { const th = i / 48 * Math.PI * 2, k = 1 + wob * (Math.sin(th * 3 + ph) * 0.7 + Math.sin(th * 5 + ph * 1.7) * 0.3), x = Math.cos(th) * ru * k, y = Math.sin(th) * rv * k, xr = x * Math.cos(rot) - y * Math.sin(rot), yr = x * Math.sin(rot) + y * Math.cos(rot), px = (u + du) * TEX + xr * TEX, py = (1 - v) * TEX + yr * TEX; i ? g.lineTo(px, py) : g.moveTo(px, py); } g.closePath(); g.fill(); } };
 function paintCoat(c) {
   const b = bodyTex.g, h = headTex.g, pat = c.pattern || '';
   for (const g of [b, h]) { g.fillStyle = c.fur; g.fillRect(0, 0, TEX, TEX); }
@@ -244,8 +245,12 @@ function paintCoat(c) {
     leaf(h, 0.75, 0.35, 0.75, 0.85, 0.022); leaf(h, 0.68, 0.45, 0.62, 0.72, 0.016); leaf(h, 0.82, 0.45, 0.88, 0.72, 0.016);   // back of the head
   }
   if (pat.includes('calico')) {
-    blob(b, 0.04, 0.42, 0.15, 0.2, c.patchA); blob(b, 0.56, 0.22, 0.13, 0.13, c.patchB); blob(b, 0.78, 0.5, 0.16, 0.22, c.patchB); blob(b, 0.5, 0.56, 0.1, 0.12, c.patchA);
-    blob(h, 0.11, 0.7, 0.13, 0.24, c.patchA, 0.3); blob(h, 0.42, 0.72, 0.11, 0.22, c.patchB, -0.3); blob(h, 0.75, 0.5, 0.2, 0.3, c.patchB);
+    lump(b, 0.04, 0.42, 0.15, 0.2, c.patchA, 0.2, 0.12, 0.6); lump(b, 0.56, 0.22, 0.13, 0.13, c.patchB, 0, 0.14, 2.1); lump(b, 0.78, 0.5, 0.16, 0.22, c.patchB, 0, 0.12, 4.2); lump(b, 0.5, 0.56, 0.1, 0.12, c.patchA, 0, 0.14, 1.3);
+    // Face patches, a big patch over the back, then a cap that wraps the whole crown: at v≈1 the sphere's pole squeezes every u into one point, so a per-patch ellipse always leaves a white ring up top.
+    lump(h, 0.10, 0.70, 0.14, 0.28, c.patchA, 0.3, 0.12, 0.7); lump(h, 0.41, 0.73, 0.12, 0.26, c.patchB, -0.3, 0.12, 3.4);
+    lump(h, 0.75, 0.55, 0.24, 0.36, c.patchB, 0, 0.1, 5.1);
+    lump(h, 0.5, 0.97, 0.62, 0.22, c.patchB, 0, 0.05, 4.4); lump(h, 0.06, 0.93, 0.3, 0.26, c.patchA, 0, 0.12, 0.3);
+    lump(h, 0.97, 0.48, 0.11, 0.2, c.patchA, 0, 0.12, 2.6);
   }
   if (c.mask) {
     const rgb = [1, 3, 5].map(i => parseInt(c.mask.slice(i, i + 2), 16)).join(',');
