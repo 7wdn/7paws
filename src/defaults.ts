@@ -19,6 +19,7 @@ export const defaultSettings: AppSettings = {
   showKeyLabels: true,
   keyboardLayout: "65",
   captureBackground: "green",
+  streamGreenScreen: false,
   showTrayIcon: true,
   mcpEnabled: true,
   reminderEnabled: false,

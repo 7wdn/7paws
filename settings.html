@@ -112,6 +112,10 @@
 
         <div class="menu-section menu-toggles">
           <div class="menu-label">直播采集</div>
+          <label class="toggle-row" for="streamGreenScreen" title="开启后小猫窗口铺满抠像背景，按 100% 不透明度输出，供 OBS 窗口捕获">
+            <span>直播绿幕</span>
+            <input id="streamGreenScreen" type="checkbox" />
+          </label>
           <div class="custom-row">
             <span class="menu-label">抠像背景</span>
             <button id="captureBackgroundSelect" class="dropdown" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="直播抠像背景">
@@ -120,8 +124,6 @@
               <span class="dropdown-caret">▾</span>
             </button>
           </div>
-          <button id="captureBtn" class="btn photo-btn" type="button">打开直播窗口</button>
-          <div id="captureHint" class="menu-hint mcp-hint" role="status">选中「7paws 直播窗口」，添加色度键抠像。</div>
         </div>
 
         <div class="menu-section menu-toggles">

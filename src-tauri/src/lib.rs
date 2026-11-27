@@ -1,6 +1,5 @@
 #![recursion_limit = "256"]
 
-mod capture;
 mod cats;
 mod config;
 mod input_hook;
@@ -486,6 +485,7 @@ fn update_settings(
     s.show_key_labels = patch.show_key_labels;
     s.keyboard_layout = patch.keyboard_layout;
     s.capture_background = patch.capture_background;
+    s.stream_green_screen = patch.stream_green_screen;
     s.show_tray_icon = patch.show_tray_icon;
     s.mcp_enabled = patch.mcp_enabled;
     s.run_as_admin = patch.run_as_admin;
@@ -1294,8 +1294,6 @@ fn run_inner(_restarting: bool) {
             get_settings,
             update_settings,
             open_settings,
-            capture::open_capture_window,
-            capture::get_capture_aspects,
             close_settings,
             set_settings_modal,
             get_custom_cats,

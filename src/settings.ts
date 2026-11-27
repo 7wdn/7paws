@@ -23,8 +23,7 @@ const layoutLabel = layoutSelect.querySelector(".dropdown-label") as HTMLSpanEle
 const captureBackgroundSelect = document.getElementById("captureBackgroundSelect") as HTMLButtonElement;
 const captureBackgroundLabel = captureBackgroundSelect.querySelector(".dropdown-label") as HTMLSpanElement;
 const captureBackgroundDot = document.getElementById("captureBackgroundDot") as HTMLSpanElement;
-const captureBtn = document.getElementById("captureBtn") as HTMLButtonElement;
-const captureHint = document.getElementById("captureHint") as HTMLDivElement;
+const streamGreenScreenInput = document.getElementById("streamGreenScreen") as HTMLInputElement;
 const leftMouseInput = document.getElementById("leftMouse") as HTMLInputElement;
 const alwaysOnTopInput = document.getElementById("alwaysOnTop") as HTMLInputElement;
 const clickThroughLockedInput = document.getElementById("clickThroughLocked") as HTMLInputElement;
@@ -739,6 +738,7 @@ function syncControls() {
     ?? CAPTURE_BACKGROUNDS[0];
   captureBackgroundLabel.textContent = background.label;
   captureBackgroundDot.style.background = background.color;
+  streamGreenScreenInput.checked = settings.streamGreenScreen;
   leftMouseInput.checked = settings.leftMouse;
   alwaysOnTopInput.checked = settings.alwaysOnTop;
   clickThroughLockedInput.checked = settings.clickThroughLocked;
@@ -987,21 +987,8 @@ function bindControls() {
     );
   });
 
-  captureBtn.addEventListener("click", async () => {
-    captureBtn.disabled = true;
-    try {
-      if (isTauri) {
-        await invoke("open_capture_window");
-      } else {
-        window.open(`capture.html?localinput&bg=${settings.captureBackground}&layout=${settings.keyboardLayout}&previewCoat=${settings.coat}`, "7paws-capture", "width=660,height=480");
-      }
-      captureHint.textContent = "选中「7paws 直播窗口」，添加色度键抠像。";
-    } catch (error) {
-      captureHint.textContent = "直播窗口未能打开，请稍后重试。";
-      console.error("Failed to open capture window", error);
-    } finally {
-      captureBtn.disabled = false;
-    }
+  streamGreenScreenInput.addEventListener("change", () => {
+    void saveSettings({ streamGreenScreen: streamGreenScreenInput.checked });
   });
 
   leftMouseInput.addEventListener("change", () => {

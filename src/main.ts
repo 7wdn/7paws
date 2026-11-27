@@ -10,7 +10,6 @@ import { CAPTURE_BACKGROUNDS } from "./captureBackgrounds";
 import type { AppSettings, CatInput, CustomCat } from "./types";
 
 const isTauri = "__TAURI_INTERNALS__" in window || "__TAURI__" in window;
-const captureMode = document.body.classList.contains("capture-body");
 
 const stage = document.getElementById("stage") as HTMLDivElement;
 const permNotice = document.getElementById("permNotice") as HTMLDivElement;
@@ -19,12 +18,10 @@ let settings: AppSettings = { ...defaultSettings };
 let customCats: CustomCat[] = [];
 let scene: SevenPawsPet;
 let win7Mode = false;
-let captureAspects: Record<AppSettings["keyboardLayout"], number> = { "65": 16 / 9, "98": 16 / 9, "104": 16 / 9 };
 const reminder = new ReminderController();
 let lastReminderKey = "";
 
 function syncReminder() {
-  if (captureMode) return;
   const key = `${settings.reminderEnabled}|${settings.reminderText}|${settings.reminderIntervalMinutes}`;
   if (key === lastReminderKey) return;
   lastReminderKey = key;
@@ -32,15 +29,15 @@ function syncReminder() {
 }
 
 function sceneSettings(): AppSettings {
-  return captureMode ? { ...settings, opacity: 1 } : settings;
+  // Chroma key needs an opaque scene; the user's opacity applies only to normal desktop use.
+  return settings.streamGreenScreen ? { ...settings, opacity: 1 } : settings;
 }
 
-function syncCaptureView() {
-  if (!captureMode) return;
+function applyStreamBackdrop() {
   const background = CAPTURE_BACKGROUNDS.find((c) => c.value === settings.captureBackground)
     ?? CAPTURE_BACKGROUNDS[0];
   document.documentElement.style.setProperty("--capture-background", background.color);
-  document.documentElement.style.setProperty("--capture-aspect", String(captureAspects[settings.keyboardLayout]));
+  document.body.classList.toggle("stream-green-screen", settings.streamGreenScreen);
 }
 
 function bindPointer() {
@@ -105,7 +102,7 @@ function runDemo() {
 }
 
 async function boot() {
-  if (!isTauri && !captureMode) {
+  if (!isTauri) {
     document.documentElement.style.background = "#f6d97a";
     document.body.style.position = "relative";
     document.body.style.width = "660px";
@@ -127,39 +124,23 @@ async function boot() {
     }
   }
 
-  if (isTauri && !captureMode) {
+  if (isTauri) {
     win7Mode = await invoke<boolean>("is_win7_mode").catch(() => false);
     if (win7Mode) {
       void invoke("win7_debug_log", { message: "frontend:win7_mode" }).catch(() => undefined);
     }
   }
 
-  if (isTauri && captureMode) {
-    const [compact, compact98, full] = await invoke<[number, number, number]>("get_capture_aspects")
-      .catch((): [number, number, number] => [captureAspects["65"], captureAspects["98"], captureAspects["104"]]);
-    captureAspects = { "65": compact, "98": compact98, "104": full };
-  }
-
   const params = new URLSearchParams(location.search);
   const debugCoat = params.get("previewCoat");
   if (debugCoat && COATS.some((c) => c.id === debugCoat)) settings.coat = debugCoat;
-  if (captureMode && !isTauri) {
-    const background = CAPTURE_BACKGROUNDS.find((c) => c.value === params.get("bg"));
-    if (background) settings.captureBackground = background.value;
-    const layoutParam = params.get("layout");
-    if (layoutParam === "104" || layoutParam === "98") settings.keyboardLayout = layoutParam;
-  }
-  syncCaptureView();
+  applyStreamBackdrop();
 
   try {
-    scene = new SevenPawsPet(stage, sceneSettings(), customCats, captureMode ? undefined : (regions) => {
+    scene = new SevenPawsPet(stage, sceneSettings(), customCats, (regions) => {
       if (isTauri) void invoke("set_hit_regions", { regions });
-    }, win7Mode, !captureMode);
+    }, win7Mode, true);
   } catch (error) {
-    if (captureMode) {
-      permNotice.textContent = `启动失败：${String(error)}`;
-      permNotice.classList.remove("hidden");
-    }
     if (isTauri) {
       void invoke("win7_debug_log", { message: `scene:init ${String(error)}` }).catch(() => undefined);
     }
@@ -169,7 +150,7 @@ async function boot() {
     void invoke("win7_debug_log", { message: "frontend:scene_created" }).catch(() => undefined);
   }
 
-  if (!captureMode) bindPointer();
+  bindPointer();
   listenGlobalKeysForDev();
   syncReminder();
 
@@ -204,7 +185,7 @@ async function boot() {
     }
     await listen<AppSettings>("cat-settings", (ev) => {
       settings = ev.payload;
-      syncCaptureView();
+      applyStreamBackdrop();
       scene.applySettings(sceneSettings(), customCats);
       syncReminder();
     });
