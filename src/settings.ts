@@ -36,6 +36,7 @@ const purrSleepInput = document.getElementById("purrSleep") as HTMLInputElement;
 const idleActionsInput = document.getElementById("idleActions") as HTMLInputElement;
 const labelsInput = document.getElementById("showKeyLabels") as HTMLInputElement;
 const reminderEnabledInput = document.getElementById("reminderEnabled") as HTMLInputElement;
+const reminderTextEnabledInput = document.getElementById("reminderTextEnabled") as HTMLInputElement;
 const reminderTextInput = document.getElementById("reminderText") as HTMLInputElement;
 const reminderIntervalInput = document.getElementById("reminderInterval") as HTMLInputElement;
 const mcpEnabledInput = document.getElementById("mcpEnabled") as HTMLInputElement;
@@ -751,6 +752,7 @@ function syncControls() {
   idleActionsInput.checked = settings.idleActions;
   labelsInput.checked = settings.showKeyLabels;
   reminderEnabledInput.checked = settings.reminderEnabled;
+  reminderTextEnabledInput.checked = settings.reminderTextEnabled;
   if (document.activeElement !== reminderTextInput) reminderTextInput.value = settings.reminderText;
   if (document.activeElement !== reminderIntervalInput) {
     reminderIntervalInput.value = String(settings.reminderIntervalMinutes);
@@ -1027,6 +1029,9 @@ function bindControls() {
 
   reminderEnabledInput.addEventListener("change", () => {
     void saveSettings({ reminderEnabled: reminderEnabledInput.checked });
+  });
+  reminderTextEnabledInput.addEventListener("change", () => {
+    void saveSettings({ reminderTextEnabled: reminderTextEnabledInput.checked });
   });
   reminderTextInput.addEventListener("input", () => {
     if (reminderTextTimer !== null) window.clearTimeout(reminderTextTimer);

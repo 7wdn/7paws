@@ -46,6 +46,7 @@ pub struct AppSettings {
     pub show_tray_icon: bool,
     pub mcp_enabled: bool,
     pub reminder_enabled: bool,
+    pub reminder_text_enabled: bool,
     pub reminder_text: String,
     pub reminder_interval_minutes: u32,
 }
@@ -75,6 +76,7 @@ impl Default for AppSettings {
             show_tray_icon: true,
             mcp_enabled: true,
             reminder_enabled: false,
+            reminder_text_enabled: true,
             reminder_text: String::new(),
             reminder_interval_minutes: 30,
         }

@@ -491,6 +491,7 @@ fn update_settings(
     s.mcp_enabled = patch.mcp_enabled;
     s.run_as_admin = patch.run_as_admin;
     s.reminder_enabled = patch.reminder_enabled;
+    s.reminder_text_enabled = patch.reminder_text_enabled;
     s.reminder_text = patch.reminder_text;
     s.reminder_interval_minutes = patch.reminder_interval_minutes;
 

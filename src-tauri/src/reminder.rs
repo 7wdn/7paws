@@ -1,12 +1,10 @@
 use crate::main_window_rect;
 use std::sync::Mutex;
-use tauri::{
-    AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, Size, WebviewUrl,
-    WebviewWindowBuilder,
-};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, WebviewUrl, WebviewWindowBuilder};
 
-const BUBBLE_WIDTH: f64 = 240.0;
-const BUBBLE_HEIGHT: f64 = 96.0;
+const BUBBLE_WIDTH: f64 = 248.0;
+const BUBBLE_HEIGHT: f64 = 240.0;
+const CARD_TOP: f64 = 12.0;
 
 static LATEST_TEXT: Mutex<Option<String>> = Mutex::new(None);
 static CREATE_LOCK: Mutex<()> = Mutex::new(());
@@ -39,26 +37,20 @@ pub(crate) fn get_reminder_text() -> Option<String> {
 }
 
 #[tauri::command]
-pub(crate) fn show_reminder_bubble_ready(app: AppHandle, width: f64, height: f64) {
+pub(crate) fn show_reminder_bubble_ready(app: AppHandle, height: f64) {
     let Some(win) = app.get_webview_window("reminder") else {
         return;
     };
-    let width = if width.is_finite() {
-        width.clamp(160.0, 360.0)
+    let card_height = if height.is_finite() {
+        height.clamp(40.0, 208.0)
     } else {
-        BUBBLE_WIDTH
+        60.0
     };
-    let height = if height.is_finite() {
-        height.clamp(40.0, 420.0)
-    } else {
-        BUBBLE_HEIGHT
-    };
-    let _ = win.set_size(Size::Logical(LogicalSize::new(width, height)));
     let sf = app
         .get_webview_window("main")
         .and_then(|pet| pet.scale_factor().ok())
         .unwrap_or(1.0);
-    if let Some((x, y)) = bubble_position(&app, width, height, sf) {
+    if let Some((x, y)) = bubble_position(&app, card_height, sf) {
         // Screen points avoid applying another display's scale.
         #[cfg(target_os = "macos")]
         let position = PhysicalPosition::new(x, y).to_logical::<f64>(sf);
@@ -109,13 +101,14 @@ fn build_bubble(app: &AppHandle) {
     }
 }
 
-fn bubble_position(app: &AppHandle, width: f64, height: f64, sf: f64) -> Option<(i32, i32)> {
+fn bubble_position(app: &AppHandle, card_height: f64, sf: f64) -> Option<(i32, i32)> {
     let (pet_x, pet_y, pet_w, pet_h) = main_window_rect(app)?;
-    let bubble_w = (width * sf).round() as i32;
-    let bubble_h = (height * sf).round() as i32;
+    let bubble_w = (BUBBLE_WIDTH * sf).round() as i32;
+    let card_h = (card_height * sf).round() as i32;
     let gap = (8.0 * sf).round() as i32;
+    let card_top_pad = (CARD_TOP * sf).round() as i32;
     let mut x = pet_x + (pet_w - bubble_w) / 2;
-    let mut y = pet_y - bubble_h - gap;
+    let mut card_top = pet_y - gap - card_h;
     let monitor = app
         .get_webview_window("main")
         .and_then(|pet| pet.current_monitor().ok().flatten())
@@ -128,11 +121,11 @@ fn bubble_position(app: &AppHandle, width: f64, height: f64, sf: f64) -> Option<
             area.size.width as i32,
             area.size.height as i32,
         );
-        if y < ay {
-            y = pet_y + pet_h + gap;
+        if card_top < ay {
+            card_top = pet_y + pet_h + gap;
         }
         x = x.clamp(ax, (ax + aw - bubble_w).max(ax));
-        y = y.clamp(ay, (ay + ah - bubble_h).max(ay));
+        card_top = card_top.clamp(ay, (ay + ah - card_h).max(ay));
     }
-    Some((x, y))
+    Some((x, card_top - card_top_pad))
 }

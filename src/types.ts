@@ -46,6 +46,7 @@ export interface AppSettings {
   showTrayIcon: boolean;
   mcpEnabled: boolean;
   reminderEnabled: boolean;
+  reminderTextEnabled: boolean;
   reminderText: string;
   reminderIntervalMinutes: number;
 }

@@ -23,6 +23,7 @@ export const defaultSettings: AppSettings = {
   showTrayIcon: true,
   mcpEnabled: true,
   reminderEnabled: false,
+  reminderTextEnabled: true,
   reminderText: "",
   reminderIntervalMinutes: 30,
 };
